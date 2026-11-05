@@ -121,6 +121,7 @@ export class World3D {
   private dots: Dot[] = [];
   private keys = new Set<string>();
   private revealAt = 0;
+  private lastRC = 0;
   private yaw = 0; private zoom = 1;
   private camPos = new THREE.Vector3();
   private shake = 0;
@@ -399,7 +400,12 @@ export class World3D {
     on(el, 'contextmenu', (e) => e.preventDefault());
     on(el, 'pointerdown', (e) => {
       this.setMouse(e);
-      if (e.button === 2) { this.drag = { x: e.clientX, yaw: this.yaw }; el.setPointerCapture(e.pointerId); return; }
+      if (e.button === 2) {
+        const now = performance.now();
+        if (now - this.lastRC < 350) { this.yaw = 0; this.zoom = 1; this.drag = null; this.lastRC = 0; return; }
+        this.lastRC = now;
+        this.drag = { x: e.clientX, yaw: this.yaw }; el.setPointerCapture(e.pointerId); return;
+      }
       if (e.button === 0) this.onClick();
     });
     on(el, 'pointermove', (e) => {

@@ -148,10 +148,10 @@ export function initHud() {
       <div id="zone" class="panel">—</div>
       <div class="panel" style="padding:4px 10px;font-size:13px">🪙 <b id="gold" style="color:var(--gold)"></b></div>
       <div class="btns hit"><button id="bi">Inventário (I)</button><button id="bc">Personagem (C)</button><button id="bk">Habilidades (K)</button><button id="bm">Mapa (M)</button><button id="bp">Menu (Esc)</button><button id="bj">Diário (L)</button><button id="bh">Ajuda (F1)</button></div>
+      <div id="quests" class="panel hidden"></div>
     </div>
     <div id="bossbar" class="panel hidden"><div id="bname"></div><div class="bar" style="height:14px"><i id="bhp" style="background:#c0392b"></i></div><div id="bcast" style="display:none"><div id="bcn"></div><div class="bar" style="height:8px"><i id="bci" style="background:#ffb03a"></i></div></div></div>
     <div id="target" class="panel hidden"><div id="tname"></div><div class="bar"><i id="thp" style="background:var(--hp)"></i></div></div>
-    <div id="quests" class="panel hidden"></div>
     <div id="log"></div>
     <div id="prompt" class="panel hidden"></div>
     <div id="pcast" class="hidden" style="position:absolute;left:50%;bottom:92px;transform:translateX(-50%);width:170px;height:7px;background:#000a;border-radius:4px;overflow:hidden"><i id="pci" style="display:block;height:100%;background:#ffd23f"></i></div>
