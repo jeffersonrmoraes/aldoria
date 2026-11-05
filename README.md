@@ -121,3 +121,6 @@ Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WE
 
 ## Grande atualização: classes, árvores, conjuntos, encantos e mundo maior
 Veja a seção correspondente em `CLAUDE.md`. Resumo: 16 classes (novas: Necromante, Cavaleiro Arcano, Dançarino das Lâminas, Ilusionista); árvores de habilidades e atributos (K); conjuntos de armadura com bônus 2/3/4 peças; encantamento de armas; economia com lojas especialistas e saturação; projéteis/golpes distintos por classe; mapa 400×300, vila maior com 5 novas lojas de classe.
+
+## Vilas dos biomas
+A cidade principal fica nos Campos. Floresta (Passo da Clareira), Cripta (Vigília dos Sinos), Colinas dos Orcs (Forte Cinzaferro) e Covil do Ogro (Último Refúgio) têm vilas muradas com taverna, lojas e curandeiros próprios. Detalhes em `CLAUDE.md`.

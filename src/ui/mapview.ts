@@ -1,6 +1,6 @@
 import { CX, CY, TILE, W, H, T, ZONES, zoneAt } from '../chapters/chapter1';
 import { FOUNTAIN, TOWN_R } from '../chapters/mapdims';
-import { BUILDINGS } from '../chapters/town';
+import { BUILDINGS, VILLAGES, townOf } from '../chapters/town';
 import { DUNGEONS } from '../chapters/story1';
 import { GH, GW, MCELL, exploredVersion, getExplored, mapSource } from '../game/mapdata';
 
@@ -170,7 +170,7 @@ const cat = (id: number): string => {
   if (id === T.wall || id === T.wall_l || id === T.wall_r || id === T.wall_w || id === T.roof || id === T.roof_l || id === T.roof_r || id === T.door) return 'wall';
   return 'land';
 };
-const ZONE_TINT: Record<string, string> = { town: '#cdd596', fields: '#c9d28c', forest: '#97b472', crypt: '#b3b09f', orcs: '#d09a6e', ogre: '#a97a5c' };
+const ZONE_TINT: Record<string, string> = { town: '#cdd596', fields: '#c9d28c', forest: '#97b472', crypt: '#b3b09f', orcs: '#d09a6e', ogre: '#a97a5c', v_floresta: '#97b472', v_cripta: '#b3b09f', v_orcs: '#d09a6e', v_ogro: '#a97a5c' };
 const TILE_TINT = (id: number, z: string): string => {
   const c = cat(id);
   if (c === 'water') return '#86b1b8';
@@ -232,7 +232,7 @@ function drawGlobalIcons(g: CanvasRenderingContext2D, v: View, tiles: number[][]
   const S = v.S;
   for (let ty = 2; ty < H - 2; ty++) for (let tx = 2; tx < W - 2; tx++) {
     const id = tiles[ty][tx], z = zoneAt(tx, ty);
-    if (z === 'town') continue;
+    if (z === 'town' || ZONES[z]?.safe) continue;
     const X = px(v, tx) + S / 2 + (r() - 0.5) * S, Y = py(v, ty) + S;
     if (id === T.tree || id === T.tree2) { if (r() < 0.55) items.push({ y: Y, draw: () => tree(g, X, Y, 7.5, 'leaf') }); }
     else if (id === T.ftree || id === T.ftree2) { if (r() < 0.6) items.push({ y: Y, draw: () => tree(g, X, Y, 7.5, 'pine') }); }
@@ -263,6 +263,12 @@ function drawGlobalLabels(g: CanvasRenderingContext2D, v: View) {
   houseIcon(g, x - 13, y + 5, 7); houseIcon(g, x + 13, y + 6, 7); houseIcon(g, x - 6, y + 14, 6); houseIcon(g, x + 8, y + 15, 6, '#2f7a5a');
   towerIcon(g, x, y + 4, 7, '#3d5a9a', 0.7, 1.9);
   halo(g, 'Pouso do Viajante', x, y + 46, 17, { bold: true, halo: 5 });
+  for (const vl of VILLAGES) {
+    const vx = px(v, vl.cx), vy = py(v, vl.cy);
+    g.save(); g.fillStyle = 'rgba(232,214,166,0.6)'; g.strokeStyle = INK; g.lineWidth = 1.4; g.beginPath(); g.arc(vx, vy, 17, 0, Math.PI * 2); g.fill(); g.stroke(); g.restore();
+    houseIcon(g, vx - 7, vy + 3, 6); houseIcon(g, vx + 7, vy + 4, 6); towerIcon(g, vx, vy + 2, 5, '#a5502f', 0.7, 1.7);
+    halo(g, vl.name, vx, vy + 30, 13.5, { bold: true, halo: 4.5 });
+  }
   g.save(); g.fillStyle = INK; g.font = `${14}px ${FONT}`; g.textAlign = 'center';
   g.restore();
   // masmorras
@@ -388,7 +394,7 @@ function drawCityLayer(g: CanvasRenderingContext2D, v: View, tiles: number[][]) 
   }
   // edifícios principais
   const ROOF: Record<string, string> = { tavern: '#a5502f', forge: '#6e6e7c', church: '#46639f', shop: '#3f8a68', barracks: '#355a9c', tower: '#4a3d8a', archery: '#4f7a3a', monk: '#c8932a', rogue: '#4a4560', cleric: '#d4a017', druid: '#3f7a3a', bard: '#a83a6a', necro: '#2a1f3a', barbarian: '#6a2a1a' };
-  for (const b of BUILDINGS) {
+  for (const b of BUILDINGS.filter((q) => townOf(q) === 'pouso')) {
     const x = px(v, b.x0), y = py(v, b.y0), w = b.w * S, h = b.h * S;
     g.save(); g.strokeStyle = INK; g.lineWidth = 1.4; g.lineJoin = 'round';
     g.fillStyle = 'rgba(60,40,20,0.25)'; g.fillRect(x + 3, y + 3, w, h);                                     // sombra

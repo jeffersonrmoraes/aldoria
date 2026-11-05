@@ -4,7 +4,7 @@ import { ABILITIES, ABILITY_NAMES, ABILITY_SHORT, MAX_LEVEL } from '../data/rule
 import { BAG_SIZE, PlayerState, addItem, derive, deleteSave, equipBlock, gainXp, listSaves, loadSave, newPlayer, player, save, setPlayer, setSlot } from '../game/state';
 import { Item, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
 import { QUESTS, ZONES, ZoneDef, zoneAt } from '../chapters/chapter1';
-import { BUILDINGS } from '../chapters/town';
+import { BUILDINGS, townOf } from '../chapters/town';
 import { MapKind, drawMap, resetMapCache } from './mapview';
 import { exploredVersion, isExplored, mapSource } from '../game/mapdata';
 import { CURRENT_CHAPTER } from '../chapters';
@@ -811,7 +811,7 @@ function renderMap() {
 function mapLegend(kind: MapKind): string {
   const ok = (t: string) => `<span style="color:#7ee787">✔</span> ${t}`, no = (t: string) => `<span style="color:#8a82a6">✖ ${t}</span>`;
   if (kind === 'city') {
-    const rows = BUILDINGS.map((b) => (isExplored(b.x0 + b.w / 2, b.y0 + b.h / 2) ? ok(`<b>${b.name}</b>`) : no('Edifício não descoberto')));
+    const rows = BUILDINGS.filter((b) => townOf(b) === 'pouso').map((b) => (isExplored(b.x0 + b.w / 2, b.y0 + b.h / 2) ? ok(`<b>${b.name}</b>`) : no('Edifício não descoberto')));
     return `<div><b style="color:var(--gold)">Locais da vila</b> — ${rows.join(' · ')}</div><div style="margin-top:4px;color:#a79cc4">Passeie pelas ruas para revelar a planta da cidade. A fonte e os bancos ficam na praça, em frente à Catedral.</div>`;
   }
   const zrows = Object.values(ZONES).map((z) => {

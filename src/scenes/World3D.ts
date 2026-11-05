@@ -4,7 +4,7 @@ import { QUESTS, TILE, WorldData, ZONES, ZoneDef, zoneAt, CX, CY, GATE_HALF } fr
 import { TOWN_R, FOUNTAIN } from '../chapters/mapdims';
 import { DUNGEON_BY_ID, DungeonDef, FRAGMENT_BY_ID, MAIN_QUESTS } from '../chapters/story1';
 import { generateDungeon } from '../chapters/dungeon';
-import { BUILDINGS, BuildingDef, doorTile, FACE_VEC } from '../chapters/town';
+import { BUILDINGS, BuildingDef, VILLAGES, doorTile, FACE_VEC } from '../chapters/town';
 import { reveal, setMapSource } from '../game/mapdata';
 import { bench, buildBuilding, buildTownWall, flowerBed, lampPost } from './buildings';
 import { buildInterior } from './interiors';
@@ -60,6 +60,7 @@ interface Fx { update(dt: number): boolean }
 const ZONE_SKY: Record<string, [string, string, number]> = {
   town: ['#9fd5ff', '#cfe8ff', 1.0], fields: ['#9fd5ff', '#cfe8ff', 1.0], forest: ['#6f9f86', '#7da58f', 0.8],
   crypt: ['#6b6890', '#7d7aa0', 0.7], orcs: ['#e0a070', '#e8b48a', 0.95], ogre: ['#8a4a4a', '#9a5a55', 0.7],
+  v_floresta: ['#6f9f86', '#7da58f', 0.9], v_cripta: ['#6b6890', '#7d7aa0', 0.8], v_orcs: ['#e0a070', '#e8b48a', 1.0], v_ogro: ['#8a4a4a', '#9a5a55', 0.8],
 };
 const mobHeight = (id: string, scale = 1) => {
   const s = MOB_SPEC[id];
@@ -228,6 +229,15 @@ export class World3D {
     let seed = 1;
     for (const [dx, dz] of [[-2.6, -5.6], [2.6, -5.6], [-3.0, 6.0], [3.0, 6.0], [-7.4, -1.8], [7.4, -1.8], [-7.4, 2.0], [7.4, 2.0]]) terrain.group.add(flowerBed(fx + dx, fz + dz, lg, 0.75, seed++));
     for (const sx of [-2.2, 2.2]) terrain.group.add(flowerBed(CX + 0.5 + sx, CY - 2.6, lg, 0.5, seed++));   // vasos junto à porta da igreja
+    // vilas dos biomas: muralha, postes, bancos e canteiros em volta da fonte
+    for (const v of VILLAGES) {
+      const vg = terrain.groundY(v.cx * TILE, v.cy * TILE);
+      terrain.group.add(buildTownWall(v.cx, v.cy, v.r, GATE_HALF, vg, v.name));
+      for (let i = 0; i < 6; i++) { const an = ((i + 0.5) / 6) * Math.PI * 2; terrain.group.add(lampPost(v.cx + 0.5 + Math.cos(an) * 6.2, v.cy + 0.5 + Math.sin(an) * 6.2, vg)); }
+      for (const [dx, dz] of [[-3.6, -2.6], [3.6, -2.6], [-3.6, 2.8], [3.6, 2.8]]) terrain.group.add(bench(v.cx + 0.5 + dx, v.cy + 0.5 + dz, vg, Math.atan2(-dx, -dz)));
+      let sd = 40;
+      for (const [dx, dz] of [[-2.4, -4.4], [2.4, -4.4], [-2.4, 4.6], [2.4, 4.6]]) terrain.group.add(flowerBed(v.cx + 0.5 + dx, v.cy + 0.5 + dz, vg, 0.7, sd++));
+    }
     this.over = {
       id: 'world', group: terrain.group, solid: terrain.solid, w: this.mapWorld().w, h: this.mapWorld().h, groundY: terrain.groundY, houses: terrain.houses,
       mobs: overMobs, npcs: overNpcs, portals: overPortals, start: this.world.start, zoneOf: zoneAt, zones: ZONES,
@@ -1163,7 +1173,7 @@ export class World3D {
     if (far) { if (m.state === 'idle') return; }
     if (m.stun > now) { m.vx = m.vy = 0; m.v.setMoving(false); m.v.update(dt, now); return; }
     const sp = m.def.speed * (m.slow > now ? 0.5 : 1);
-    const inTown = this.zoneId === 'town';
+    const inTown = !!ZONES[this.zoneId]?.safe;
     const dp = Math.hypot(m.x - this.p.x, m.y - this.p.y);
     const dh = Math.hypot(m.x - m.hx, m.y - m.hy);
     const rad = 4 * Math.max(1, m.def.scale * 0.6);
@@ -1203,7 +1213,7 @@ export class World3D {
     }
     const moving = Math.hypot(m.vx, m.vy) > 1;
     if (moving) { const ox = m.x, oy = m.y; this.move(m, m.vx, m.vy, dt, rad);
-      if (this.loc === this.over && !m.boss && zoneAt(Math.floor(m.x / TILE), Math.floor(m.y / TILE)) === 'town') { m.x = ox; m.y = oy; } // monstros não entram na vila
+      if (this.loc === this.over && !m.boss && ZONES[zoneAt(Math.floor(m.x / TILE), Math.floor(m.y / TILE))]?.safe) { m.x = ox; m.y = oy; } // monstros não entram na vila
       if (m.state !== 'chase') m.face = Math.atan2(m.vx, m.vy); }
     m.v.setMoving(moving, Math.hypot(m.vx, m.vy) / 60);
     root.position.copy(this.P(m.x, m.y));

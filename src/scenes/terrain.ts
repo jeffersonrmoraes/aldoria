@@ -2,8 +2,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { F } from '../art/atlas';
-import { H, TILE, W, WorldData, zoneAt } from '../chapters/chapter1';
+import { H, TILE, W, WorldData, zoneAt, ZONES } from '../chapters/chapter1';
 import { FOUNTAIN } from '../chapters/mapdims';
+import { VILLAGES } from '../chapters/town';
 
 const NAME: Record<number, string> = {};
 for (const [k, v] of Object.entries(F)) NAME[v as number] = k;
@@ -68,7 +69,7 @@ export function buildTerrain(world: WorldData): Terrain {
   const tmp = new THREE.Color();
   for (let vy = 0; vy < VH; vy++) for (let vx = 0; vx < VW; vx++) {
     const adj = [nameAt(vx - 1, vy - 1), nameAt(vx, vy - 1), nameAt(vx - 1, vy), nameAt(vx, vy)];
-    const flat = adj.some((n) => FLAT.has(n)) || zoneAt(vx, vy) === 'town';
+    const flat = adj.some((n) => FLAT.has(n)) || !!ZONES[zoneAt(vx, vy)]?.safe;
     const water = adj.filter((n) => n === 'water').length;
     let h = (Math.sin(vx * 0.33) + Math.sin(vy * 0.27 + 1.3) + Math.sin((vx + vy) * 0.15) + 0.4 * Math.sin(vx * 0.9 + vy * 0.7)) * 0.1 + 0.18;
     if (flat) h *= 0.1;
@@ -133,7 +134,8 @@ export function buildTerrain(world: WorldData): Terrain {
   const solid = new Uint8Array(W * H);
   const BLOCK = new Set(['water', 'tree', 'tree2', 'bush', 'ftree', 'ftree2', 'red_rock', 'red_tree', 'grave', 'grave2', 'roof_l', 'roof', 'roof_r', 'wall_l', 'wall', 'wall_w', 'wall_r', 'door']);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (BLOCK.has(names[y][x])) solid[y * W + x] = 1;
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) solid[(FOUNTAIN.y + dy) * W + FOUNTAIN.x + dx] = 1; // fonte da praça (3×3)
+  const FOUNTAINS = [FOUNTAIN, ...VILLAGES.map((v) => ({ x: v.cx, y: v.cy }))];
+  for (const F0 of FOUNTAINS) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) solid[(F0.y + dy) * W + F0.x + dx] = 1; // fonte da praça (3×3)
 
   // ---- adereços instanciados ----
   const treeRound = merge([
@@ -293,8 +295,9 @@ export function buildTerrain(world: WorldData): Terrain {
   }
 
   // ---- fonte da praça ----
+  for (const F0 of FOUNTAINS) {
   const fountain = new THREE.Group();
-  fountain.position.set(FOUNTAIN.x + 0.5, groundY(FOUNTAIN.x * TILE, FOUNTAIN.y * TILE), FOUNTAIN.y + 0.5);
+  fountain.position.set(F0.x + 0.5, groundY(F0.x * TILE, F0.y * TILE), F0.y + 0.5);
   fountain.scale.setScalar(1.5);
   const stone = new THREE.MeshLambertMaterial({ color: '#b8bccb' });
   fountain.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.05, 0.4, 16).translate(0, 0.2, 0), stone), { castShadow: true, receiveShadow: true }));
@@ -302,6 +305,7 @@ export function buildTerrain(world: WorldData): Terrain {
   fountain.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.0, 8).translate(0, 0.8, 0), stone), { castShadow: true }));
   fountain.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8).translate(0, 1.4, 0), new THREE.MeshPhongMaterial({ color: '#9ad8ff', emissive: '#2a6aa0', transparent: true, opacity: 0.85 })));
   group.add(fountain);
+  }
 
   return { group, houses, groundY, solid };
 }

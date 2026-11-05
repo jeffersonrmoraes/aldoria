@@ -7,6 +7,8 @@ export interface BuildingDef {
   x0: number; y0: number; w: number; h: number;   // pegada no mapa
   facing: 'S' | 'N' | 'E' | 'W';                   // lado da porta (w,h = pegada no mapa)
   npcs: BuildingNpc[];
+  /** vila a que pertence ('pouso' = cidade principal) */
+  town?: string;
 }
 
 export const BUILDINGS: BuildingDef[] = [
@@ -28,6 +30,54 @@ export const BUILDINGS: BuildingDef[] = [
   { id: 'cripta', name: 'Cripta Sombria', kind: 'necro', x0: CX - 31, y0: CY + 8, w: 5, h: 6, facing: 'E', npcs: [{ id: 'necro', name: 'Mortícia, a Coveira' }] },
   { id: 'machado', name: 'Salão do Machado Vermelho', kind: 'barbarian', x0: CX + 14, y0: CY + 23, w: 6, h: 5, facing: 'N', npcs: [{ id: 'barbarian', name: 'Grogna Punho-de-Pedra' }] },
 ];
+// ---------------------------------------------------------------- vilas dos biomas
+export interface VillageDef { id: string; zone: string; name: string; biome: string; cx: number; cy: number; r: number }
+export const VILLAGE_R = 17;
+export const VILLAGES: VillageDef[] = [
+  { id: 'clareira', zone: 'v_floresta', name: 'Passo da Clareira', biome: 'forest', cx: 50, cy: CY, r: VILLAGE_R },
+  { id: 'sinos', zone: 'v_cripta', name: 'Vigília dos Sinos', biome: 'crypt', cx: CX, cy: 52, r: VILLAGE_R },
+  { id: 'cinzaferro', zone: 'v_orcs', name: 'Forte Cinzaferro', biome: 'orcs', cx: 312, cy: CY, r: VILLAGE_R },
+  { id: 'refugio', zone: 'v_ogro', name: 'Último Refúgio', biome: 'ogre', cx: CX, cy: 238, r: VILLAGE_R },
+];
+type VB = [string, string, BuildingKind, string, string];   // id, nome, tipo, id do NPC, nome do NPC
+const QUAD: { x0: number; y0: number; facing: 'S' | 'N' }[] = [
+  { x0: -11, y0: -10, facing: 'S' }, { x0: 5, y0: -10, facing: 'S' }, { x0: -11, y0: 5, facing: 'N' }, { x0: 5, y0: 5, facing: 'N' },
+];
+const VILLAGE_BUILDINGS: Record<string, VB[]> = {
+  clareira: [
+    ['clareira-taverna', 'Hospedaria do Corvo Verde', 'tavern', 'innkeeper', 'Taverneira Maelis'],
+    ['clareira-arco', 'Pavilhão dos Rastreadores', 'archery', 'archer', 'Rastreadora Sylwen'],
+    ['clareira-circulo', 'Santuário da Clareira', 'druid', 'druid', 'Druida Faelan'],
+    ['clareira-armazem', 'Armazém do Lenhador', 'shop', 'merchant', 'Mercador Torben'],
+  ],
+  sinos: [
+    ['sinos-taverna', 'Taverna do Último Suspiro', 'tavern', 'innkeeper', 'Taverneiro Osric'],
+    ['sinos-capela', 'Capela da Luz Perdida', 'cleric', 'cleric', 'Irmã Calanthe'],
+    ['sinos-ossuario', 'Ossuário do Coveiro', 'necro', 'necro', 'Coveiro Vael'],
+    ['sinos-posto', 'Posto dos Caça-Mortos', 'barracks', 'captain', 'Sentinela Marwen'],
+  ],
+  cinzaferro: [
+    ['cinza-taverna', 'Taverna do Machado Partido', 'tavern', 'innkeeper', 'Taverneira Hilde'],
+    ['cinza-forja', 'Forja Cinzaferro', 'forge', 'smith', 'Ferreiro Dagan'],
+    ['cinza-salao', 'Salão do Punho Rubro', 'barbarian', 'barbarian', 'Thrukk Quebra-Escudo'],
+    ['cinza-quartel', 'Quartel de Cinzaferro', 'barracks', 'captain', 'Capitã Ruvia'],
+  ],
+  refugio: [
+    ['refugio-taverna', 'Abrigo do Último Fôlego', 'tavern', 'innkeeper', 'Taverneiro Gorm'],
+    ['refugio-torre', 'Torre do Vigia', 'tower', 'sage', 'Sábia Ysolde'],
+    ['refugio-capela', 'Capela do Último Refúgio', 'church', 'priest', 'Padre Lucan'],
+    ['refugio-emporio', 'Empório do Refúgio', 'shop', 'merchant', 'Mercadora Brisa'],
+  ],
+};
+for (const v of VILLAGES) {
+  VILLAGE_BUILDINGS[v.id].forEach(([id, name, kind, nid, nname], i) => {
+    const q = QUAD[i];
+    BUILDINGS.push({ id, name, kind, x0: v.cx + q.x0, y0: v.cy + q.y0, w: 6, h: 5, facing: q.facing, npcs: [{ id: nid, name: nname }, ...(kind === 'church' ? [{ id: 'healer', name: 'Irmã Elowen' }] : [])], town: v.id });
+  });
+}
+export const townOf = (b: BuildingDef) => b.town ?? 'pouso';
+export const villageAt = (tx: number, ty: number) => VILLAGES.find((v) => (tx - v.cx) ** 2 + (ty - v.cy) ** 2 <= v.r * v.r);
+
 export const BUILDING_BY_ID = Object.fromEntries(BUILDINGS.map((b) => [b.id, b])) as Record<string, BuildingDef>;
 
 /** tile da porta (na rua, em frente à entrada) */

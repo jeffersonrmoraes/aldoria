@@ -1,4 +1,4 @@
-import { BUILDINGS, doorTile } from './town';
+import { BUILDINGS, VILLAGES, doorTile, townOf } from './town';
 import { F } from '../art/atlas';
 import { DUNGEONS } from './story1';
 
@@ -12,6 +12,8 @@ export interface ZoneDef {
   mobs: [string, number][]; // [id do monstro, peso]
   count: number;            // quantidade de pontos de spawn
   safe?: boolean;
+  /** bioma do terreno (vilas) */
+  biome?: string;
 }
 
 export interface Quest {
@@ -44,6 +46,10 @@ const GATE = 2; // portões: meia-largura em tiles
 export const GATE_HALF = GATE;
 export const ZONES: Record<string, ZoneDef> = {
   town: { id: 'town', name: 'Pouso do Viajante', levels: 'Zona segura', mobs: [], count: 0, safe: true },
+  v_floresta: { id: 'v_floresta', name: 'Passo da Clareira', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'forest' },
+  v_cripta: { id: 'v_cripta', name: 'Vigília dos Sinos', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'crypt' },
+  v_orcs: { id: 'v_orcs', name: 'Forte Cinzaferro', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'orcs' },
+  v_ogro: { id: 'v_ogro', name: 'Último Refúgio', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'ogre' },
   fields: { id: 'fields', name: 'Campos Verdes', levels: 'Nível 1–2', mobs: [['rat', 40], ['kobold', 35], ['slime', 25]], count: 270 },
   forest: { id: 'forest', name: 'Floresta Sombria', levels: 'Nível 3–4', mobs: [['goblin', 55], ['wolf', 45]], count: 235 },
   crypt: { id: 'crypt', name: 'Cripta Esquecida', levels: 'Nível 5–6', mobs: [['skeleton', 55], ['zombie', 45]], count: 180 },
@@ -52,6 +58,7 @@ export const ZONES: Record<string, ZoneDef> = {
 };
 
 export function zoneAt(tx: number, ty: number): string {
+  for (const v of VILLAGES) if ((tx - v.cx) ** 2 + (ty - v.cy) ** 2 <= v.r * v.r) return v.zone;
   if ((tx - CX) ** 2 + (ty - CY) ** 2 <= TOWN_R * TOWN_R) return 'town';
   const fx = tx / W, fy = ty / H;
   if (fy < 0.27 && fx > 0.3 && fx < 0.7) return 'crypt';
@@ -106,13 +113,14 @@ export function generateWorld(): WorldData {
     const row: number[] = [];
     for (let x = 0; x < W; x++) {
       const z = zoneAt(x, y);
-      const zg = zoneAt(x + Math.floor(rnd() * 5) - 2, y + Math.floor(rnd() * 5) - 2); // mistura as bordas do piso
+      const zr = zoneAt(x + Math.floor(rnd() * 5) - 2, y + Math.floor(rnd() * 5) - 2); // mistura as bordas do piso
+      const zg = ZONES[zr]?.biome ?? zr;
       let t: number = T.grass;
       if (zg === 'town' || zg === 'fields') t = rnd() < 0.07 ? T.flowers : rnd() < 0.5 ? T.grass : T.grass2;
       else if (zg === 'forest') t = T.forest;
       else if (zg === 'crypt') t = T.stone;
       else t = T.red;
-      if (z !== 'town') for (const [ot, p] of obstacle[z]) if (rnd() < p) { t = pick(ot); break; }
+      if (z !== 'town' && obstacle[z]) for (const [ot, p] of obstacle[z]) if (rnd() < p) { t = pick(ot); break; }
       row.push(t);
     }
     tiles.push(row);
@@ -145,10 +153,29 @@ export function generateWorld(): WorldData {
     const roadW = Math.abs(y - CY) <= 1 && x < CX - 12, roadE = Math.abs(y - CY) <= 1 && x > CX + 12;
     if ((roadN || roadS || roadW || roadE) && dist(x, y) <= TOWN_R) pave(x, y);                                // ruas até os portões
   }
+  // vilas dos biomas: praça central, ruas em cruz e muralha com 4 portões
+  for (const v of VILLAGES) {
+    for (let y = v.cy - v.r - 1; y <= v.cy + v.r + 1; y++) for (let x = v.cx - v.r - 1; x <= v.cx + v.r + 1; x++) {
+      const d = Math.hypot(x - v.cx, y - v.cy);
+      if (d > v.r) continue;
+      if (d <= 5) pave(x, y);
+      else if (Math.abs(x - v.cx) <= 1 || Math.abs(y - v.cy) <= 1) pave(x, y);
+    }
+  }
   for (const b of BUILDINGS) {
     for (let y = b.y0; y < b.y0 + b.h; y++) for (let x = b.x0; x < b.x0 + b.w; x++) tiles[y][x] = T.wall;
     const d = doorTile(b);
     for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) pave(d.tx + ox, d.ty + oy);
+    if (townOf(b) !== 'pouso') {
+      const v = VILLAGES.find((q) => q.id === townOf(b))!;
+      let vx = d.tx + 0.5, vy = d.ty + 0.5;
+      for (let i = 0; i < 40 && Math.hypot(vx - v.cx, vy - v.cy) > 5; i++) {
+        const dx = v.cx + 0.5 - vx, dy = v.cy + 0.5 - vy, l = Math.hypot(dx, dy);
+        vx += (dx / l) * 0.7; vy += (dy / l) * 0.7;
+        for (let oy = 0; oy <= 1; oy++) for (let ox = 0; ox <= 1; ox++) pave(Math.floor(vx) + ox, Math.floor(vy) + oy);
+      }
+      continue;
+    }
     // caminho de pedra da porta até o anel de ruas
     let fx = d.tx + 0.5, fy = d.ty + 0.5;
     for (let i = 0; i < 80 && dist(Math.floor(fx), Math.floor(fy)) > 15.7; i++) {
@@ -220,6 +247,14 @@ export function generateWorld(): WorldData {
     const gate = (Math.abs(x - CX) <= GATE && Math.abs(y - CY) > 18) || (Math.abs(y - CY) <= GATE && Math.abs(x - CX) > 18);
     tiles[y][x] = gate ? paved() : T.wall;
   }
+  for (const v of VILLAGES) {
+    for (let y = v.cy - v.r - 2; y <= v.cy + v.r + 2; y++) for (let x = v.cx - v.r - 2; x <= v.cx + v.r + 2; x++) {
+      const d = Math.hypot(x - v.cx, y - v.cy);
+      if (d < v.r - 1.2 || d >= v.r + 0.8) continue;
+      const gate = Math.abs(x - v.cx) <= GATE || Math.abs(y - v.cy) <= GATE;
+      tiles[y][x] = gate ? paved() : T.wall;
+    }
+  }
   // covil do chefe
   const lair = { x: CX, y: 262 };
   for (let y = lair.y - 11; y <= lair.y + 11; y++) for (let x = lair.x - 11; x <= lair.x + 11; x++) {
@@ -252,6 +287,7 @@ export function generateWorld(): WorldData {
       if (zoneAt(x, y) !== z.id) continue;
       if (blocked(x, y) || ([T.dirt, T.dirt2, T.dirt3] as number[]).includes(tiles[y][x]) || tiles[y][x] === T.water) continue;
       if (dist(x, y) <= TOWN_R + 6) continue; // nada nasce dentro nem junto da muralha
+      if (VILLAGES.some((v) => Math.hypot(x - v.cx, y - v.cy) <= v.r + 5)) continue;
       if (DUNGEONS.some((d) => Math.hypot(x - d.entrance.tx, y - d.entrance.ty) < 7)) continue;
       if (z.id === 'ogre' && Math.hypot(x - lair.x, y - lair.y) < 14) continue;
       if (spawns.some((s) => Math.hypot(s.x / TILE - x, s.y / TILE - y) < 4)) continue;
@@ -269,6 +305,12 @@ export function generateWorld(): WorldData {
     for (const sg of [-1, 1]) {
       const [gx, gy] = at(TOWN_R - 3, a);
       npcs.push({ id: 'guard', name: 'Guarda do Portão', x: px(gx + nx * sg * 3.2), y: px(gy + ny * sg * 3.2), face: Math.atan2(-Math.cos(a), -Math.sin(a)) + Math.PI });
+    }
+  }
+  for (const v of VILLAGES) {
+    for (const [dx, dy, fc] of [[v.r - 3, 0, Math.PI / 2], [-(v.r - 3), 0, -Math.PI / 2], [0, v.r - 3, 0], [0, -(v.r - 3), Math.PI]] as [number, number, number][]) {
+      const sx = dx === 0 ? 3 : 0, sy = dy === 0 ? 3 : 0;
+      npcs.push({ id: 'guard', name: 'Guarda de ' + v.name, x: px(v.cx + dx + sx), y: px(v.cy + dy + sy), face: fc });
     }
   }
   const ringPath = (r: number, n: number, rev: boolean, off: number) => Array.from({ length: n }, (_, i) => { const a = ((rev ? -i : i) / n) * Math.PI * 2 + off; const [x, y] = at(r, a); return { x: px(x), y: px(y) }; });
