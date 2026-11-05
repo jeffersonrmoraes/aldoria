@@ -56,7 +56,7 @@ function buildPart(d: PartDef, tint?: string): THREE.Object3D {
     }
     case 'tusks': {
       const mat = pm(ivory);
-      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.03 * sc, 0.14 * sc, 5), mat, sx * 0.1, -0.2, 0.33, Math.PI - 0.2, 0, -sx * 0.1);
+      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.025 * sc, 0.1 * sc, 5), mat, sx * 0.1, -0.2, 0.33, -0.2, 0, sx * 0.1);
       break;
     }
     case 'fangs': {
@@ -66,7 +66,7 @@ function buildPart(d: PartDef, tint?: string): THREE.Object3D {
     }
     case 'eyes': {
       const mat = pm(d.c ?? '#ff3b2b', 1.4);
-      for (const sx of [-1, 1]) add(new THREE.SphereGeometry(0.026 * sc, 8, 6), mat, sx * 0.11, 0.05, 0.31);
+      for (const sx of [-1, 1]) { const e = add(new THREE.SphereGeometry(0.03 * sc, 8, 6), mat, sx * 0.1, 0.05, 0.31); e.scale.set(1, 0.8, 0.5); }
       break;
     }
     case 'crest': {
@@ -162,6 +162,7 @@ export class SkinnedActor implements Visual {
     const bones: Record<string, THREE.Object3D | undefined> = {};
     this.model.traverse((o) => { if (['head', 'hips', 'chest'].includes(o.name) && !bones[o.name]) bones[o.name] = o; });
     for (const d of parts) {
+      if (d.k === 'eyes' && this.spec.model === 'Barbarian') continue; // o rosto do Bárbaro já tem olhos; sobrepor ficava fora de posição
       const bn = PART_BONE[d.k], bone = bones[bn];
       if (!bone) continue;
       const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
@@ -175,8 +176,8 @@ export class SkinnedActor implements Visual {
       part.scale.setScalar(k);
       part.position.set(o[0] * k, o[1] * k + (d.k === 'eyes' && this.spec.model === 'Barbarian' ? -0.04 * k : 0), o[2] * k);
       // o rosto do Bárbaro é mais achatado: recua olhos/presas/nariz para encostar na face
-      if (this.spec.model === 'Barbarian' && ['eyes', 'tusks', 'fangs', 'nose'].includes(d.k)) part.position.z -= (d.k === 'eyes' ? 0.05 : 0.1) * k;
-      else if (this.spec.model === 'Mage' && d.k === 'tusks') { part.position.z -= 0.07 * k; part.position.y += 0.12 * k; part.scale.multiplyScalar(1.3); }
+      if (this.spec.model === 'Barbarian' && ['eyes', 'tusks', 'fangs', 'nose'].includes(d.k)) part.position.z -= (d.k === 'eyes' ? 0.1 - 0.1 * (Math.min(this.spec.scale ?? 1, 2.6) - 1) : 0.1 - 0.045 * (Math.min(this.spec.scale ?? 1, 2.6) - 1)) * k; // monstros grandes têm barba mais saliente
+      else if (this.spec.model === 'Mage' && d.k === 'tusks') { part.position.z -= 0.02 * k; part.position.y += 0.12 * k; part.scale.multiplyScalar(1.3); }
       wrap.add(part);
       bone.add(wrap);
       part.traverse((m) => { const mesh = m as THREE.Mesh; if (mesh.isMesh) mesh.castShadow = false; });
