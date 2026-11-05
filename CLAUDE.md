@@ -26,6 +26,7 @@ Cada loja vende o que o seu ofício vende (`SHOP_INFO` / `genShopStock` em `src/
 Novas lojas: adicionar `BuildingKind` em `town.ts`, emblema em `buildings.ts`, interior em `interiors.ts`, NPC em `NPC_SPEC` e cor em `mapview.ts`.
 
 ## Menu e personagens
+- **Tela inicial temática** (`showMenu` em `ui.ts`, CSS `.tscreen` em `index.html`): céu noturno com lua, dragão voando, castelo, brasas, d20 girando, título serifado dourado e fichas de personagem em pergaminho (selo numerado). Só CSS/SVG, sem arquivos.
 - 3 espaços de personagem (`aldoria-save-slot-N`; o save antigo migra para o espaço 1).
 - **Esc** abre o Menu (Continuar / Como jogar / Salvar e voltar ao menu principal).
 

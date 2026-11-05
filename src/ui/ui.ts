@@ -40,23 +40,35 @@ export function showMenu(start: () => void) {
   root.innerHTML = '';
   const saves = listSaves();
   const cards = saves.map((p, n) => p
-    ? `<div class="slotc" data-n="${n}" style="border:1px solid #6b5a9a;border-radius:8px;padding:8px;background:#1d1830;width:150px;text-align:center">
-        <canvas width="256" height="256" data-pc="${n}" style="width:96px;height:96px;image-rendering:auto"></canvas>
-        <div style="font-weight:700;color:#ffe9a8;margin-top:4px">${escapeHtml(p.name)}</div>
-        <div style="font-size:11px;color:#a79cc4">${RACE_BY_ID[p.raceId]?.name ?? ''} ${CLASS_BY_ID[p.classId]?.name ?? ''} · Nv ${p.level}</div>
-        <div class="row" style="justify-content:center;margin-top:6px"><button class="primary" data-play="${n}">Jogar</button><button data-del="${n}" title="Excluir personagem">🗑️</button></div>
+    ? `<div class="parch slotc" data-n="${n}"><div class="sealc">${n + 1}</div>
+        <canvas width="256" height="256" data-pc="${n}" style="width:96px;height:96px"></canvas>
+        <div class="pn">${escapeHtml(p.name)}</div>
+        <div class="pc">${RACE_BY_ID[p.raceId]?.name ?? ''} ${CLASS_BY_ID[p.classId]?.name ?? ''}</div>
+        <div class="pc">Nível ${p.level}</div>
+        <div class="row" style="justify-content:center;margin-top:8px"><button class="primary" data-play="${n}">⚔ Aventurar</button><button data-del="${n}" title="Excluir personagem">🗑️</button></div>
       </div>`
-    : `<div class="slotc" style="border:1px dashed #4a4170;border-radius:8px;padding:8px;background:#15122200;width:150px;min-height:172px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
-        <div style="font-size:30px;color:#6b5a9a">＋</div><div style="font-size:11px;color:#a79cc4">Slot ${n + 1} vazio</div>
-        <button data-new="${n}">Novo personagem</button></div>`).join('');
+    : `<div class="parch empty slotc"><div class="sealc" style="background:#3a2f55;border-color:#8a6a2a">${n + 1}</div>
+        <div style="font-size:30px">📜</div><div style="font-size:12px;font-style:italic">Folha de personagem vazia</div>
+        <button data-new="${n}">Criar herói</button></div>`).join('');
+  const embers = Array.from({ length: 22 }, (_, i) => `<i class="ember" style="left:${(i * 47) % 100}%;animation-duration:${6 + (i * 7) % 9}s;animation-delay:${-(i * 3) % 10}s;--dx:${((i * 13) % 80) - 40}px"></i>`).join('');
   const m = h(`
-    <div class="title" style="max-width:760px">
-      <h1>REINOS DE ALDORIA</h1>
+    <div class="sky"><div class="stars"></div><div class="moon"></div>
+      <svg class="dragon" viewBox="0 0 120 60" fill="#0a0612"><path d="M2 30 L30 22 L44 6 L52 24 L70 18 L96 4 L88 26 L112 20 L94 34 L70 36 L56 50 L50 36 L26 38 Z"/><path d="M96 4 L118 10 L100 18 Z"/></svg>
+      <svg class="land" viewBox="0 0 1000 300" preserveAspectRatio="none">
+        <path d="M0 300 V180 L90 110 L170 170 L260 90 L360 190 L450 130 L560 200 L660 100 L760 180 L860 120 L1000 190 V300Z" fill="#1c1030"/>
+        <g fill="#0d0818"><path d="M0 300 V230 L120 190 L220 225 L330 200 L440 240 L560 215 L700 250 L820 220 L1000 245 V300Z"/>
+        <path d="M700 250 V150 h12 v-20 h10 v20 h14 v-32 l8 -14 8 14 v32 h14 v-20 h10 v20 h12 v100Z"/>
+        <rect x="738" y="165" width="6" height="12" fill="#ffb347"/><rect x="760" y="165" width="6" height="12" fill="#ffb347"/><rect x="749" y="130" width="5" height="9" fill="#ffb347"/></g>
+      </svg>${embers}</div>
+    <div class="tcontent">
+      <svg class="d20" viewBox="0 0 100 100"><polygon points="50,4 92,28 92,72 50,96 8,72 8,28" fill="#2b1a5a" stroke="#f1c40f" stroke-width="3"/><polygon points="50,4 92,72 8,72" fill="#4a2f94" stroke="#f1c40f" stroke-width="2"/><polyline points="8,28 50,72 92,28" fill="none" stroke="#f1c40f" stroke-width="2"/><line x1="50" y1="96" x2="50" y2="72" stroke="#f1c40f" stroke-width="2"/><text x="50" y="56" text-anchor="middle" font-family="Georgia,serif" font-weight="700" font-size="22" fill="#fff3b0">20</text></svg>
+      <h1>Reinos de Aldoria</h1>
+      <div class="orn">✦ ⚔ ✦</div>
       <h2>Capítulo ${CURRENT_CHAPTER.id} — ${CURRENT_CHAPTER.title}</h2>
-      <h3 style="color:#ffe9a8;margin:14px 0 8px">Escolha seu herói</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">${cards}</div>
-      <p style="color:#a79cc4;font-size:12px;margin-top:24px">Baseado no SRD 5.1 de D&amp;D (CC-BY-4.0) · Modelos 3D: KayKit (CC0) · Ícones: Kenney.nl (CC0)</p>
-    </div>`, 'screen');
+      <div class="hero-h">Escolha seu herói</div>
+      <div class="slots">${cards}</div>
+      <p class="tcredits">Baseado no SRD 5.1 de D&amp;D (CC-BY-4.0) · Modelos 3D: KayKit (CC0) · Ícones: Kenney.nl (CC0)</p>
+    </div>`, 'tscreen');
   root.appendChild(m);
   saves.forEach((p, n) => { if (p) q<HTMLCanvasElement>(`[data-pc="${n}"]`, m).getContext('2d')!.drawImage(portrait(p.raceId, p.classId, p.tone, 'bust'), 0, 0); });
   qa<HTMLElement>('[data-play]', m).forEach((b) => (b.onclick = () => { const n = Number(b.dataset.play); const p = loadSave(n); if (p) { setSlot(n); setPlayer(p); start(); } }));
