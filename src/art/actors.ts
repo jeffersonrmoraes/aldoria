@@ -56,7 +56,7 @@ function buildPart(d: PartDef, tint?: string): THREE.Object3D {
     }
     case 'tusks': {
       const mat = pm(ivory);
-      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.04 * sc, 0.22 * sc, 5), mat, sx * 0.12, -0.17, 0.35, Math.PI - 0.25, 0, -sx * 0.12);
+      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.03 * sc, 0.14 * sc, 5), mat, sx * 0.1, -0.2, 0.33, Math.PI - 0.2, 0, -sx * 0.1);
       break;
     }
     case 'fangs': {
@@ -176,6 +176,7 @@ export class SkinnedActor implements Visual {
       part.position.set(o[0] * k, o[1] * k + (d.k === 'eyes' && this.spec.model === 'Barbarian' ? -0.04 * k : 0), o[2] * k);
       // o rosto do Bárbaro é mais achatado: recua olhos/presas/nariz para encostar na face
       if (this.spec.model === 'Barbarian' && ['eyes', 'tusks', 'fangs', 'nose'].includes(d.k)) part.position.z -= (d.k === 'eyes' ? 0.05 : 0.1) * k;
+      else if (this.spec.model === 'Mage' && d.k === 'tusks') { part.position.z -= 0.07 * k; part.position.y += 0.12 * k; part.scale.multiplyScalar(1.3); }
       wrap.add(part);
       bone.add(wrap);
       part.traverse((m) => { const mesh = m as THREE.Mesh; if (mesh.isMesh) mesh.castShadow = false; });
