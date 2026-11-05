@@ -1,13 +1,27 @@
 # Servidor online — Reinos de Aldoria
 
-Node + Colyseus (WebSocket). **Fase 1:** presença (ver outros jogadores), movimento e chat por mapa.
-O combate, o loot e os saves ainda são locais em cada cliente (as próximas fases movem isso para o servidor).
+Node + Colyseus (WebSocket).
+- **Fase 1:** presença (ver outros jogadores), movimento e chat por mapa.
+- **Fase 2:** os **monstros do mundo aberto** (`'world'`) vivem no servidor: IA, vida, morte e respawn são compartilhados por todos os jogadores. O servidor também **calcula o dano e o XP** (ataques, habilidades, encantos, mortes) com as mesmas regras do cliente (`src/game/combat.ts`, `src/data/*`, empacotadas no servidor com esbuild).
+- Continuam locais: **chefes** (Gnarlmaw e masmorras), vida/energia/inventário/saves do jogador e o sorteio de itens. As próximas fases: contas e personagem guardado no servidor.
+
+### Honestidade sobre anti-trapaça
+Sem contas, o servidor não "conhece" o personagem: o cliente declara a ficha (`sheet`: raça, classe, nível, equipamento, árvores). O servidor **valida formato e limites** (classe/nível/mãos podem usar o item, números dentro de faixas) e **recalcula tudo**: acerto (d20 × CA), dano, críticos, recargas, alcance, cadência, buffs, XP e ouro por morte. Ele não aceita "dano" do cliente, só a intenção (`atk`, `sk`, `mn`). Mas um cliente adulterado ainda pode declarar uma ficha forte demais (item inventado dentro dos limites, nível mais alto). Fechar isso exige contas e inventário no servidor (fase seguinte). Energia e poções também são locais.
 
 ## Rodar localmente
 ```bash
 cd server
 npm install
 npm run dev          # http://localhost:2567/health
+npm run typecheck    # checa tipos (inclui o código compartilhado de ../src)
+npm run build        # gera dist/index.js (esbuild; agrupa ../src junto)
+```
+O build precisa do repositório inteiro (o servidor importa `../src`). Se o Render reclamar de `../../src`, limpe o **Root Directory** do serviço e use `cd server && npm install --include=dev && npm run build` / `cd server && npm start`.
+
+Testes de linha de comando (servidor em outra porta, ex.: `PORT=2599 node dist/index.js`):
+```bash
+node tools/netbot.mjs            # bot ataca, mata um monstro, recebe XP, vê o respawn
+node tools/netfuzz.mjs           # todas as classes/habilidades + mensagens inválidas
 ```
 No jogo (build ou `npm run dev` na raiz), abra com `?server=ws://localhost:2567` e marque **🌐 Jogar online** no menu inicial.
 
@@ -17,7 +31,8 @@ No jogo (build ou `npm run dev` na raiz), abra com `?server=ws://localhost:2567`
 3. A URL do jogo precisa apontar para `wss://…` dessa URL: ajuste `DEFAULT_SERVER` em `src/net/config.ts` (ou abra o jogo uma vez com `?server=wss://SUA-URL.onrender.com`, que fica salvo no navegador).
 4. O plano gratuito dorme após ~15 min sem uso; o primeiro acesso demora até ~1 min (o jogo mostra "Conectando…").
 
-## Protocolo (v1) — `src/protocol.ts`
-- cliente → servidor: `pos {x,y,f,mv,loc}` (≈10/s), `chat {t}`
-- servidor → cliente: `welcome`, `online {n}`, `roster [...]`, `join`, `leave`, `snap [[id,x,y,f,mv],…]` (10/s, só jogadores do mesmo mapa), `chat {id,name,t,ch}`
-- Anti-abuso: limite de `pos` por jogador, anti-spam de chat (5 msgs/8 s), nomes/textos sanitizados, versão de protocolo checada ao entrar.
+## Protocolo (v2) — `src/protocol.ts`
+- cliente → servidor: `pos {x,y,f,mv,loc,dd}` (≈10/s), `chat {t}`, `sheet {raceId,classId,level,equipped,skills,attrs}` (quando muda), `atk {m}`, `sk {i,m?,a?}`, `mn {m}` (m = índice do ponto de spawn)
+- servidor → cliente: `welcome`, `online {n}`, `roster [...]`, `join`, `leave`, `snap [[id,x,y,f,mv],…]`, `chat {…}`, `ready {n,h}` (assinatura do mundo), `mobs [idx,x,y,hp,flags,face,…]` (10/s, só os próximos), `hit {m,d,c,k,by}`, `matk {m}`, `hurt {m,d,c}` (só para o alvo), `kill {m,def,xp,gold,elite}` (só para quem participou)
+- Monstros: ~965 pontos de spawn gerados de forma determinista (mesma `generateWorld()` no cliente e no servidor; `worldSig` confere). Elites por índice (`eliteAt`).
+- Anti-abuso: limite de `pos` por jogador, limite de 40 mensagens de combate/s, cadência/alcance/recarga validados, anti-spam de chat (5 msgs/8 s), nomes/textos sanitizados, versão de protocolo checada ao entrar.

@@ -28,6 +28,8 @@ import { dumpValue } from '../data/economy';
 import { NetClient } from '../net/online';
 import { RemotePlayers } from '../net/remotes';
 import { onlineWanted } from '../net/config';
+import type { HitMsg, HurtMsg, KillMsg, SheetMsg } from '../net/protocol';
+import { eliteAt, killXp, skillAt as sharedSkillAt, worldSig } from '../game/combat';
 
 interface Mob {
   def: MobDef;
@@ -41,6 +43,8 @@ interface Mob {
   vx: number; vy: number;
   label?: HTMLDivElement; bar?: HTMLElement;
   boss?: BossState; ghost?: boolean; owner?: Mob;
+  /** índice do ponto de spawn no mundo aberto (igual no servidor) e estado vindo dele no modo online */
+  idx?: number; tx?: number; ty?: number; sf?: number;
 }
 interface Area { k: 'c' | 'cone' | 'rect' | 'donut'; x: number; y: number; r: number; inner?: number; ang?: number; half?: number; len?: number; w?: number }
 interface Cast { ab: BossAbility; start: number; end: number; dur: number; cancelled: boolean }
@@ -137,6 +141,8 @@ export class World3D {
   private ray = new THREE.Raycaster();
   private cleanup: (() => void)[] = [];
   private net: NetClient | null = null;
+  /** o servidor confirmou que simula os monstros do mundo aberto (mundo idêntico ao deste cliente) */
+  private srvReady = false;
   private remotes: RemotePlayers | null = null;
   private fogCol = new THREE.Color('#cfe8ff');
   private skyCol = new THREE.Color('#9fd5ff');
@@ -204,18 +210,18 @@ export class World3D {
       overNpcs.push({ id: n.id, name: n.name, x: n.x, y: n.y, v, label: this.mkLabel(n.name, n.id === 'guard' ? '#bcd4ff' : '#ffe9a8'), path: n.path, pi: 1, face: n.face });
     }
 
-    for (const sp of this.world.spawns) {
+    this.world.spawns.forEach((sp, si) => {
       const base = MOBS.find((m) => m.id === sp.mob)!;
-      const def = !sp.boss && !base.boss && Math.random() < 0.06 ? eliteOf(base) : base;
+      const def = !sp.boss && !base.boss && eliteAt(si) ? eliteOf(base) : base;
       const v = mobVisual(def.id, def.scale);
       v.root.position.set(sp.x / TILE, this.terrain.groundY(sp.x, sp.y), sp.y / TILE);
       v.root.rotation.y = Math.random() * 6.28;
       overMobs.push({
         def, v, h: mobHeight(def.id, def.scale), x: sp.x, y: sp.y, hx: sp.x, hy: sp.y, face: v.root.rotation.y, hp: def.hp, max: def.hp,
         state: 'idle', nextAtk: 0, slow: 0, stun: 0, dead: false, deadAt: 0, respawn: 0, wanderAt: rand(0, 3000), vx: 0, vy: 0,
-        boss: def_boss(def.id),
+        boss: def_boss(def.id), idx: sp.boss || base.boss ? undefined : si,
       });
-    }
+    });
 
     for (const d of this.world.dungeons) {
       const df = DUNGEON_BY_ID[d.id];
@@ -464,7 +470,22 @@ export class World3D {
     if (!onlineWanted()) { bus.emit('net', 'off'); return; }
     let lastSt = '';
     this.net = new NetClient({
-      status: (s, d) => { bus.emit('net', s, d); if (d && s !== lastSt) bus.emit('log', d, s === 'error' ? '#ffb3a0' : '#9fe3ff'); lastSt = s; },
+      status: (s, d) => {
+        bus.emit('net', s, d); if (d && s !== lastSt) bus.emit('log', d, s === 'error' ? '#ffb3a0' : '#9fe3ff'); lastSt = s;
+        if (s !== 'on') this.srvReady = false;     // caiu a conexão: os monstros voltam a ser simulados localmente
+      },
+      ready: (m) => {
+        const ok = m.h === worldSig(this.world.spawns);
+        if (ok && !this.srvReady) bus.emit('log', 'Monstros do mundo agora são compartilhados com os outros jogadores.', '#9fe3ff');
+        if (!ok) bus.emit('log', 'O servidor tem uma versão diferente do mundo — monstros seguem locais. Recarregue a página (Ctrl+F5).', '#ffb3a0');
+        this.srvReady = ok;
+        this.net?.resendSheet();
+      },
+      mobs: (a) => this.onMobs(a),
+      hit: (h) => this.onSrvHit(h),
+      matk: (m) => { const mob = this.over.mobs[m.m]; if (mob && !mob.dead && this.isSrv(mob) && mob.v.root.visible) mob.v.attack(); },
+      hurt: (h) => this.onSrvHurt(h),
+      kill: (k) => this.onSrvKill(k),
       roster: (l) => this.remotes?.setRoster(l),
       join: (p) => this.remotes?.add(p),
       leave: (id) => this.remotes?.remove(id),
@@ -476,6 +497,101 @@ export class World3D {
       },
     });
     void this.net.connect({ name: player.name, raceId: player.raceId, classId: player.classId, tone: player.tone, level: player.level });
+  }
+
+  // ---------- monstros do servidor (modo online) ----------
+  private srvOn() { return this.srvReady && this.net?.status === 'on' && this.loc === this.over; }
+  private isSrv(m: Mob) { return m.idx !== undefined && this.srvOn(); }
+
+  private sheetMsg(): SheetMsg {
+    return { raceId: player.raceId, classId: player.classId, level: player.level, equipped: player.equipped as Record<string, unknown>, skills: player.skills, attrs: player.attrs };
+  }
+
+  /** instantâneo de monstros próximos: [idx, x, y, hp, flags, face] (flags: 1 morto, 2 perseguindo, 4 andando) */
+  private onMobs(a: number[]) {
+    if (!this.srvOn()) return;
+    const list = this.over.mobs;
+    for (let k = 0; k + 5 < a.length; k += 6) {
+      const m = list[a[k]];
+      if (!m || m.idx === undefined) continue;
+      m.tx = a[k + 1]; m.ty = a[k + 2]; m.hp = a[k + 3]; m.sf = a[k + 4]; m.face = a[k + 5];
+      m.state = m.sf & 2 ? 'chase' : 'idle';
+      if (m.sf & 1) { if (!m.dead) this.srvDie(m); }
+      else if (m.dead) { m.dead = false; m.x = m.tx; m.y = m.ty; m.v.revive(); m.v.root.visible = true; }
+    }
+  }
+  private srvDie(m: Mob) {
+    m.dead = true; m.vx = m.vy = 0; m.deadAt = this.now;
+    if (Math.hypot(this.p.x - m.x, this.p.y - m.y) < 400) sfx.mobDie();
+    m.v.setMoving(false); m.v.die();
+    if (this.target === m) { this.target = null; this.chase = false; }
+  }
+  private updateSrvMob(m: Mob, now: number, dt: number) {
+    const root = m.v.root;
+    const far = Math.hypot(this.p.x - m.x, this.p.y - m.y) > 620;
+    if (m.dead) {
+      if (root.visible && now - m.deadAt > 1800) root.visible = false;
+      else if (root.visible && !far) m.v.update(dt, now);
+      return;
+    }
+    root.visible = !far;
+    if (m.tx !== undefined && m.ty !== undefined) {
+      const dx = m.tx - m.x, dy = m.ty - m.y;
+      if (Math.abs(dx) + Math.abs(dy) > 70) { m.x = m.tx; m.y = m.ty; }
+      else { const k = Math.min(1, dt * 12); m.x += dx * k; m.y += dy * k; }
+    }
+    const moving = ((m.sf ?? 0) & 4) !== 0;
+    m.v.setMoving(moving, moving ? m.def.speed / 60 : 0);
+    root.position.copy(this.P(m.x, m.y));
+    this.turn(root, m.face, dt);
+    if (!far) m.v.update(dt, now);
+  }
+  /** resultado (decidido no servidor) de um golpe em um monstro */
+  private onSrvHit(h: HitMsg) {
+    const m = this.over.mobs[h.m];
+    if (!m || m.dead || !this.srvOn() || !m.v.root.visible) return;
+    const mine = h.by === this.net?.selfId;
+    if (h.k === 'm') { if (mine) { sfx.miss(); this.float(this.P(m.x, m.y, m.h + 0.1), 'Errou', '#b8b8c8', 7); } return; }
+    const crit = h.c === 1;
+    m.hp = Math.max(0, m.hp - h.d);
+    if (mine || h.k !== 'p') sfx.hit(crit);
+    this.float(this.P(m.x, m.y, m.h * 0.9), (crit ? '¡' : '') + h.d + (crit ? '!' : ''), crit ? '#ffd23f' : mine ? '#ffffff' : '#cfd6ff', crit ? 12 : mine ? 9 : 7);
+    this.burst(this.P(m.x, m.y, m.h * 0.55), h.col ?? (mine ? CLASS_BY_ID[player.classId].atkColor : 0xcfd6ff));
+    if (crit) this.vfx.impact(this.P(m.x, m.y, m.h * 0.6), 0xffd23f, true);
+    m.v.flash(); m.v.hit();
+    if (!mine) return;
+    if (!this.target) this.target = m;
+    if ((h.k === 'h' || h.k === 'd') && this.d.lifesteal > 0 && player.hp < this.d.maxHp) {
+      const g = Math.max(1, Math.round(h.d * this.d.lifesteal));
+      player.hp = Math.min(this.d.maxHp, player.hp + g);
+      this.float(this.P(this.p.x, this.p.y, 2.0), '+' + g, '#ff8aa0', 7);
+    }
+    if (h.k === 'd') {
+      const g = Math.max(1, Math.round(h.d * 0.5));
+      player.hp = Math.min(this.d.maxHp, player.hp + g);
+      this.float(this.P(this.p.x, this.p.y, 2.1), '+' + g, '#7ee787', 9);
+      this.vfx.rise(this.P(this.p.x, this.p.y, 0), 0x7ee787, 8, 0.6, 0.9);
+    }
+  }
+  /** golpe de um monstro em mim (acerto e dano decididos no servidor) */
+  private onSrvHurt(h: HurtMsg) {
+    if (this.dead || !this.srvOn()) return;
+    const head = this.P(this.p.x, this.p.y, 2.0);
+    if (h.d <= 0) { this.float(head, 'Esquivou', '#b8b8c8', 7); return; }
+    const m = this.over.mobs[h.m];
+    if (m && !this.target && !m.dead) this.target = m;
+    this.lastHit = this.now;
+    player.hp -= h.d; sfx.hurt();
+    this.float(head, '-' + h.d, h.c ? '#ff5050' : '#ff8a8a', h.c ? 11 : 9);
+    this.pv.flash(); this.pv.hit();
+    this.shake = 0.08;
+    if (player.hp <= 0) this.die(this.now);
+  }
+  /** recompensa de uma morte da qual participei: XP e ouro calculados pelo servidor */
+  private onSrvKill(k: KillMsg) {
+    const m = this.over.mobs[k.m];
+    if (!m || !this.srvOn()) return;
+    this.grantKill(m.def, k.xp, k.gold, m);
   }
 
   private openChat() {
@@ -690,7 +806,8 @@ export class World3D {
     this.turn(pr, this.p.face, dt);
     this.pv.update(dt, now);
     this.remotes?.update(dt, now, (x, y, h) => this.P(x, y, h), (el, v) => this.place(el, v));
-    this.net?.tick(now, this.p.x, this.p.y, this.p.face, this.pv.isMoving, this.loc.id);
+    this.net?.tick(now, this.p.x, this.p.y, this.p.face, this.pv.isMoving, this.loc.id, this.dead);
+    this.net?.sheet(this.sheetMsg(), now);
     for (const n of this.npcs) {
       const near = this.distTo(n) < 90;
       if (n.path && !(near && this.distTo(n) < 40)) {
@@ -844,6 +961,7 @@ export class World3D {
     const d = this.d;
     const cls = CLASS_BY_ID[player.classId];
     const fx = CLASS_FX[player.classId];
+    if (this.isSrv(m)) this.net!.attack(m.idx!);   // online: o servidor rola o ataque e o dano
     let r = d20();
     if (r === 1 && RACE_BY_ID[player.raceId].mods.luck) r = d20();
     if (d.style !== 'melee') {
@@ -873,10 +991,10 @@ export class World3D {
     if (k === 'arrow') sfx.arrow(); else if (k === 'quarrel' || k === 'dagger') sfx.bolt();
     else sfx.magic((k ?? 'orb') as 'orb');
   }
-  private miss(m: Mob) { sfx.miss(); this.float(this.P(m.x, m.y, m.h + 0.1), 'Errou', '#b8b8c8', 7); }
+  private miss(m: Mob) { if (this.isSrv(m)) return; sfx.miss(); this.float(this.P(m.x, m.y, m.h + 0.1), 'Errou', '#b8b8c8', 7); }
 
   private damage(m: Mob, dmg: number, crit: boolean, color = 0xffffff, noProc = false) {
-    if (m.dead) return;
+    if (m.dead || this.isSrv(m)) return;      // monstros do servidor só recebem dano pelo servidor
     m.hp -= dmg;
     sfx.hit(crit);
     this.float(this.P(m.x, m.y, m.h * 0.9), (crit ? '¡' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd23f' : '#ffffff', crit ? 12 : 9);
@@ -949,15 +1067,18 @@ export class World3D {
     m.respawn = this.now + (m.def.boss ? (this.loc.dungeon ? Infinity : 120000) : rand(18000, 28000));
     if (m.boss && this.loc.arena?.gate) this.openArena();
     if (this.target === m) { this.target = null; this.chase = false; }
-    const race = RACE_BY_ID[player.raceId], cls = CLASS_BY_ID[player.classId];
-    const diff = player.level - m.def.level;
-    const mult = diff >= 5 ? 0.2 : diff >= 3 ? 0.6 : 1;
-    const xp = Math.round(m.def.xp * mult * (1 + (race.mods.xp ?? 0) + this.d.xpPct));
+    const xp = killXp(m.def, player.level, player.raceId, this.d.xpPct);
     const gold = Math.round(randGold(m.def.level) * (m.def.boss ? 6 : 1) * (1 + this.d.goldPct));
+    this.grantKill(m.def, xp, gold, m);
+  }
+
+  /** recompensas de uma morte (XP/ouro vêm do cálculo local ou, online, do servidor); sorteios de item continuam locais */
+  private grantKill(def: MobDef, xp: number, gold: number, m: { x: number; y: number; h: number }) {
+    const cls = CLASS_BY_ID[player.classId];
     player.gold += gold; player.kills++; sfx.coin();
     this.float(this.P(m.x, m.y, m.h + 0.5), `+${xp} XP`, '#c084fc', 8);
     gainXp(xp);
-    bus.emit('log', `${m.def.name} derrotado: +${xp} XP, +${gold} ouro`, '#d8d0f0');
+    bus.emit('log', `${def.name} derrotado: +${xp} XP, +${gold} ouro`, '#d8d0f0');
     if (this.d.manaKill > 0 && player.en < this.d.maxEn) {
       player.en = Math.min(this.d.maxEn, player.en + this.d.manaKill);
       this.float(this.P(this.p.x, this.p.y, 2.0), '+' + this.d.manaKill + ' EN', '#8ab4ff', 8);
@@ -965,22 +1086,22 @@ export class World3D {
     }
     for (const q of [...QUESTS, ...MAIN_QUESTS]) {
       const st = player.quests[q.id];
-      if (st && st.state === 'active' && q.mob === m.def.id) {
+      if (st && st.state === 'active' && q.mob === def.id) {
         st.progress++;
         if (st.progress >= q.count) { st.state = 'ready'; bus.emit('log', `Missão cumprida: ${q.title}! Volte ao ${'main' in q ? 'Sábio Orin' : 'Capitão Brann'}.`, '#7ee787'); }
       }
     }
-    if (m.def.fragment && !player.story.fragments.includes(m.def.fragment)) {
-      player.story.fragments.push(m.def.fragment);
-      bus.emit('story', { kind: 'fragment', id: m.def.fragment });
-      bus.emit('log', `Você obteve: ${FRAGMENT_BY_ID[m.def.fragment].name}!`, '#ffd23f');
+    if (def.fragment && !player.story.fragments.includes(def.fragment)) {
+      player.story.fragments.push(def.fragment);
+      bus.emit('story', { kind: 'fragment', id: def.fragment });
+      bus.emit('log', `Você obteve: ${FRAGMENT_BY_ID[def.fragment].name}!`, '#ffd23f');
     }
-    const boss = !!m.def.boss;
-    if (Math.random() < (boss || m.def.elite ? 1 : 0.32)) {
+    const boss = !!def.boss;
+    if (Math.random() < (boss || def.elite ? 1 : 0.32)) {
       const r = Math.random();
       const off = allowedOff(cls);
       const slot: Slot = r < 0.24 ? 'mainhand' : r < 0.4 ? 'body' : r < 0.52 ? 'head' : r < 0.64 ? 'legs' : r < 0.78 && off.length ? 'offhand' : 'accessory';
-      const it = genItem({ slot, level: m.def.level, style: cls.style, rarity: rollRarity(boss, !!m.def.elite), armorMax: cls.armor, off, cid: cls.id });
+      const it = genItem({ slot, level: def.level, style: cls.style, rarity: rollRarity(boss, !!def.elite), armorMax: cls.armor, off, cid: cls.id });
       sfx.loot(it.rarity);
       if (addItem(it)) bus.emit('log', `Item encontrado: ${it.name}`, RARITY_COLORS[it.rarity]);
       else { const g = dumpValue(it); player.gold += g; bus.emit('log', `Mochila cheia: ${it.name} vendido por ${g} ouro`, '#f1c40f'); }
@@ -990,20 +1111,8 @@ export class World3D {
   }
 
   // ---------- habilidades ----------
-  /** habilidade com os bônus da árvore de habilidades aplicados (dano, recarga, custo) */
-  private skillAt(i: number): SkillDef | undefined {
-    if (i >= 3) return RACE_BY_ID[player.raceId].racial;
-    const base = CLASS_BY_ID[player.classId].skills[i];
-    if (!base) return undefined;
-    const m = skillMod(player, i);
-    if (!m.dmgPct && !m.cdPct && !m.costPct) return base;
-    return {
-      ...base,
-      mult: base.mult != null ? +(base.mult * (1 + m.dmgPct)).toFixed(3) : base.mult,
-      dur: base.dur != null ? Math.round(base.dur * (1 + m.dmgPct)) : base.dur,
-      cd: Math.round(base.cd * (1 - m.cdPct)), cost: Math.max(4, Math.round(base.cost * (1 - m.costPct))),
-    };
-  }
+  /** habilidade com os bônus da árvore de habilidades aplicados (regra compartilhada com o servidor) */
+  private skillAt(i: number): SkillDef | undefined { return sharedSkillAt(player, i); }
 
   private useSkill(i: number) {
     if (this.dead) return;
@@ -1015,7 +1124,7 @@ export class World3D {
     if (player.en < sk.cost) { bus.emit('log', 'Energia insuficiente.', '#8ab4ff'); (sfx.nope(), bus.emit('nope', i)); return; }
     const run = () => {
       if (player.en < sk.cost) { (sfx.nope(), bus.emit('nope', i)); return; }
-      if (this.perform(sk)) { player.en -= sk.cost; this.cds[sk.id] = this.now + sk.cd; }
+      if (this.perform(sk, i)) { player.en -= sk.cost; this.cds[sk.id] = this.now + sk.cd; }
       else (sfx.nope(), bus.emit('nope', i));
     };
     if (this.d.style !== 'melee' && (sk.kind === 'bolt' || sk.kind === 'strike')) {
@@ -1033,7 +1142,7 @@ export class World3D {
     return { dmg: Math.max(1, Math.round((dmg + d.dmgBonus + buff.dmg) * mult * (1 + d.dmgPct))), crit };
   }
 
-  private perform(sk: SkillDef): boolean {
+  private perform(sk: SkillDef, si: number): boolean {
     const buff = this.buffSum();
     const color = sk.color ?? 0xffffff;
     const hits = sk.hits ?? 1;
@@ -1045,6 +1154,7 @@ export class World3D {
       case 'strike': {
         const m = this.pickTarget(sk.range ?? 30);
         if (!m) { bus.emit('log', 'Nenhum alvo ao alcance.', '#a79cc4'); return false; }
+        if (this.isSrv(m)) this.net!.skill(si, m.idx);
         this.faceTo(m.x, m.y); cast();
         for (let h = 0; h < hits; h++) {
           this.after(120 + h * 140, () => this.vfx.slash(this.P(this.p.x, this.p.y, 1.0), this.p.face, fx?.slash ?? 'slash', fx?.color ?? 0xffe08a, true));
@@ -1060,6 +1170,7 @@ export class World3D {
       case 'bolt': case 'drain': {
         const m = this.pickTarget(sk.range ?? 130);
         if (!m) { bus.emit('log', 'Nenhum alvo ao alcance.', '#a79cc4'); return false; }
+        if (this.isSrv(m)) this.net!.skill(si, m.idx);
         this.faceTo(m.x, m.y); cast('Spellcast_Shoot');
         for (let h = 0; h < hits; h++) {
           const r = this.calc(sk.mult ?? 1, buff);
@@ -1087,6 +1198,7 @@ export class World3D {
         return true;
       }
       case 'nova': {
+        if (this.srvOn()) this.net!.skill(si);
         cast('Spellcast_Shoot');
         const rad = (sk.radius ?? 60) / TILE;
         this.ringFx(this.p.x, this.p.y, color, rad);
@@ -1107,6 +1219,7 @@ export class World3D {
         const t = this.pickTarget(sk.radius ?? 80) ?? this.nearest(sk.radius ?? 80);
         const ang = t ? Math.atan2(t.y - this.p.y, t.x - this.p.x) : Math.atan2(Math.cos(this.p.face), Math.sin(this.p.face));
         const rad = sk.radius ?? 80;
+        if (this.srvOn()) this.net!.skill(si, t?.idx, ang);
         this.p.face = Math.atan2(Math.cos(ang), Math.sin(ang)); cast('Spellcast_Shoot');
         this.sector(this.p.x, this.p.y, ang, rad / TILE, color);
         for (let i = 0; i < 26; i++) {
@@ -1132,6 +1245,7 @@ export class World3D {
         return true;
       }
       case 'buff': {
+        if (this.srvOn()) this.net!.skill(si);
         this.buffs.push({ until: this.now + (sk.dur ?? 8000), buff: sk.buff ?? {} });
         this.ringFx(this.p.x, this.p.y, 0xf1c40f, 1.6);
         this.vfx.rise(foot(), fx?.color ?? 0xffe066, 16, 0.8, 1.0); this.vfx.ring(foot(), 0xffffff, 1.4, 0.5);
@@ -1139,6 +1253,7 @@ export class World3D {
         return true;
       }
       case 'dash': {
+        if (this.srvOn()) this.net!.skill(si);
         let dx = this.mouseG.x - this.p.x, dy = this.mouseG.y - this.p.y;
         const l = Math.hypot(dx, dy);
         if (l < 6) { dx = Math.sin(this.p.face); dy = Math.cos(this.p.face); } else { dx /= l; dy /= l; }
@@ -1192,6 +1307,7 @@ export class World3D {
       if (!tgt && d > 160) { mn.x = this.p.x; mn.y = this.p.y; }
       if (tgt && d <= 24 && now >= mn.nextAtk) {
         mn.nextAtk = now + 1150; mn.face = Math.atan2(tgt.x - mn.x, tgt.y - mn.y); mn.v.attack();
+        if (this.isSrv(tgt)) this.net!.minion(tgt.idx!);
         const dmg = Math.max(1, roll(1, 6) + player.level + Math.round(this.d.dmgBonus * 0.6));
         this.after(220, () => { if (!tgt!.dead) { this.damage(tgt!, dmg, false, 0x6aff9a, true); this.vfx.spark(this.P(tgt!.x, tgt!.y, tgt!.h * 0.5), 0x6aff9a, 5, 1.4, 0.4, 0.06); } });
       }
@@ -1226,6 +1342,7 @@ export class World3D {
 
   // ---------- monstros ----------
   private updateMob(m: Mob, now: number, dt: number, buff: Required<Buff>) {
+    if (this.isSrv(m)) { this.updateSrvMob(m, now, dt); return; }
     const root = m.v.root;
     const far = Math.hypot(this.p.x - m.x, this.p.y - m.y) > 620;
     if (m.dead) {

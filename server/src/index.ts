@@ -4,6 +4,10 @@ import { WebSocketTransport } from '@colyseus/ws-transport';
 import { WorldRoom } from './WorldRoom.js';
 import { PROTOCOL } from './protocol.js';
 
+// rede de segurança: um erro inesperado numa mensagem/temporizador nunca derruba o mundo inteiro
+process.on('uncaughtException', (e) => console.error('[erro]', e));
+process.on('unhandledRejection', (e) => console.error('[erro]', e));
+
 const port = Number(process.env.PORT ?? 2567);
 const started = Date.now();
 

@@ -1,6 +1,6 @@
 // Cliente de rede (Colyseus): presença, movimento e chat. Falhas nunca derrubam o jogo: ele segue offline.
 import { Client, Room } from 'colyseus.js';
-import { ChatMsg, JoinOptions, PlayerInfo, PosMsg, PROTOCOL, SnapMsg } from './protocol';
+import { ChatMsg, HitMsg, HurtMsg, JoinOptions, KillMsg, MAtkMsg, MobsMsg, PlayerInfo, PosMsg, PROTOCOL, ReadyMsg, SheetMsg, SnapMsg } from './protocol';
 import { serverUrl } from './config';
 
 export type RemoteInfo = PlayerInfo & { x?: number; y?: number };
@@ -13,6 +13,13 @@ export interface NetHandlers {
   leave(id: string): void;
   snap(s: SnapMsg): void;
   chat(m: ChatMsg): void;
+  /** fase 2: monstros do mundo aberto simulados no servidor */
+  ready(m: ReadyMsg): void;
+  mobs(a: MobsMsg): void;
+  hit(m: HitMsg): void;
+  matk(m: MAtkMsg): void;
+  hurt(m: HurtMsg): void;
+  kill(m: KillMsg): void;
 }
 
 export class NetClient {
@@ -21,7 +28,9 @@ export class NetClient {
   online = 0;
   private room: Room | null = null;
   private lastSend = 0;
-  private last = { x: 0, y: 0, f: 0, mv: 0, loc: '' };
+  private last = { x: 0, y: 0, f: 0, mv: 0, loc: '', dd: 0 };
+  private sheetJson = '';
+  private sheetAt = 0;
   private closed = false;
 
   constructor(private h: NetHandlers) {}
@@ -44,6 +53,12 @@ export class NetClient {
       room.onMessage('leave', (m: { id: string }) => this.h.leave(m.id));
       room.onMessage('snap', (s: SnapMsg) => this.h.snap(s));
       room.onMessage('chat', (m: ChatMsg) => this.h.chat(m));
+      room.onMessage('ready', (m: ReadyMsg) => this.h.ready(m));
+      room.onMessage('mobs', (a: MobsMsg) => this.h.mobs(a));
+      room.onMessage('hit', (m: HitMsg) => this.h.hit(m));
+      room.onMessage('matk', (m: MAtkMsg) => this.h.matk(m));
+      room.onMessage('hurt', (m: HurtMsg) => this.h.hurt(m));
+      room.onMessage('kill', (m: KillMsg) => this.h.kill(m));
       room.onLeave(() => { this.room = null; if (!this.closed) this.set('error', 'Conexão perdida — jogando offline.'); });
       room.onError((_c, msg) => this.set('error', `Erro de rede: ${msg}`));
     } catch (e) {
@@ -54,15 +69,30 @@ export class NetClient {
   }
 
   /** Envia a posição (no máximo ~10x/s; reenvia a cada 1 s mesmo parado). */
-  tick(now: number, x: number, y: number, f: number, mv: boolean, loc: string) {
+  tick(now: number, x: number, y: number, f: number, mv: boolean, loc: string, dead = false) {
     if (!this.room || this.status !== 'on') return;
-    const l = this.last, m = mv ? 1 : 0;
-    const changed = Math.abs(x - l.x) > 0.5 || Math.abs(y - l.y) > 0.5 || Math.abs(f - l.f) > 0.05 || m !== l.mv || loc !== l.loc;
+    const l = this.last, m = mv ? 1 : 0, dd = dead ? 1 : 0;
+    const changed = Math.abs(x - l.x) > 0.5 || Math.abs(y - l.y) > 0.5 || Math.abs(f - l.f) > 0.05 || m !== l.mv || loc !== l.loc || dd !== l.dd;
     if (now - this.lastSend < (changed ? 100 : 1000)) return;
     this.lastSend = now;
-    this.last = { x, y, f, mv: m, loc };
-    this.room.send('pos', { x, y, f, mv: m, loc } satisfies PosMsg);
+    this.last = { x, y, f, mv: m, loc, dd };
+    this.room.send('pos', { x, y, f, mv: m, loc, dd } satisfies PosMsg);
   }
+
+  /** Envia a ficha declarada (só quando muda; no máximo a cada 1,5 s). O servidor valida e recalcula tudo a partir dela. */
+  sheet(s: SheetMsg, now: number) {
+    if (!this.room || this.status !== 'on' || now - this.sheetAt < 1500) return;
+    this.sheetAt = now;
+    const j = JSON.stringify(s);
+    if (j === this.sheetJson) return;
+    this.sheetJson = j;
+    this.room.send('sheet', s);
+  }
+  resendSheet() { this.sheetJson = ''; }
+
+  attack(m: number) { if (this.room && this.status === 'on') this.room.send('atk', { m }); }
+  skill(i: number, m?: number, a?: number) { if (this.room && this.status === 'on') this.room.send('sk', { i, m, a }); }
+  minion(m: number) { if (this.room && this.status === 'on') this.room.send('mn', { m }); }
 
   chat(t: string) { if (this.room && this.status === 'on') this.room.send('chat', { t }); }
 
