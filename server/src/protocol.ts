@@ -1,5 +1,5 @@
 // Protocolo cliente <-> servidor (v3). Mantido em espelho em src/net/protocol.ts do cliente.
-export const PROTOCOL = 4;
+export const PROTOCOL = 5;
 
 /** Dados públicos de um jogador (aparência e identificação). */
 export interface PlayerInfo {
@@ -58,4 +58,4 @@ export interface KillMsg { m: number; def: string; xp: number; gold: number; eli
 /** 'snap': servidor -> cliente, [id, x, y, f, mv] dos jogadores no mesmo mapa. */
 export type SnapMsg = [string, number, number, number, number][];
 
-export interface ChatMsg { id: string; name: string; t: string; ch: 'mapa' | 'sistema' }
+export interface ChatMsg { id: string; name: string; t: string; ch: 'mapa' | 'sistema' | 'grupo' }

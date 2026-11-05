@@ -495,6 +495,7 @@ export class World3D {
       snap: (s) => this.remotes?.snap(s),
       chat: (m) => {
         if (m.ch === 'sistema') { bus.emit('log', m.t, '#ffb3a0'); return; }
+        if (m.ch === 'grupo') { bus.emit('log', `[Grupo] ${m.name}: ${m.t}`, '#b8f5a8'); return; }
         bus.emit('log', `${m.name}: ${m.t}`, m.id === this.net?.selfId ? '#fff3c4' : '#cfe9ff');
         if (m.id !== this.net?.selfId) this.remotes?.say(m.id, m.t);
       },

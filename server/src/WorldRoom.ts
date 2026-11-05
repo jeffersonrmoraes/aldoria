@@ -5,6 +5,19 @@ import { sanitizeSheet } from './sheet.js';
 import { derive } from '../../src/game/state';
 import { readToken } from './auth.js';
 
+/** Anti-trapaça: nível confiável por personagem (conta+nome+classe). Sobe no máximo 1 nível a cada 40 s conectado. */
+const LEVEL_LEDGER = new Map<string, { lvl: number; at: number }>();
+const LEVEL_EVERY = 40_000;
+export function trustedLevel(key: string, declared: number, now: number): number {
+  const e = LEVEL_LEDGER.get(key);
+  if (!e) { LEVEL_LEDGER.set(key, { lvl: declared, at: now }); return declared; }
+  const allowed = e.lvl + Math.floor((now - e.at) / LEVEL_EVERY);
+  const lvl = Math.min(declared, allowed);
+  if (lvl > e.lvl) { e.at += (lvl - e.lvl) * LEVEL_EVERY; e.lvl = lvl; }
+  else if (lvl < e.lvl) { e.lvl = lvl; e.at = now; }   // trocou para personagem/nível menor
+  return lvl;
+}
+
 interface Peer extends PlayerInfo, SimPlayer {
   x: number; y: number; f: number; mv: number; loc: string;
   lastPos: number; lastChat: number; chatBurst: number;
@@ -58,6 +71,8 @@ export class WorldRoom extends Room {
       if (!sheet) return;
       const key = rejected.join('|');
       if (key !== p.lastWarn) { p.lastWarn = key; if (rejected.length) client.send('warn', { items: rejected.slice(0, 6) } satisfies WarnMsg); }
+      const lv = trustedLevel(`${p.acc}|${p.name}|${sheet.classId}`, sheet.level, now);
+      if (lv < sheet.level) { rejected.push(`nível ${sheet.level} (subindo rápido demais; valendo ${lv})`); sheet.level = lv; p.lastWarn = ''; client.send('warn', { items: [`nível declarado ${m.level} acima do permitido; valendo ${lv} online`] } satisfies WarnMsg); }
       p.sheet = sheet; p.d = derive(sheet);
       p.level = sheet.level;
     });
@@ -92,6 +107,7 @@ export class WorldRoom extends Room {
       if (!p) return;
       const t = clean(m?.t, 200);
       if (!t) return;
+      if (t.startsWith('/')) { if (this.allow(p) && !this.command(p, t)) this.say(p, 'Comando desconhecido. Use /grupo ou /g mensagem.'); return; }
       const now = Date.now();
       // anti-spam: no máximo 5 mensagens a cada 8 s
       p.chatBurst = Math.max(0, p.chatBurst - (now - p.lastChat) / 1600) + 1;
@@ -109,6 +125,60 @@ export class WorldRoom extends Room {
   }
 
   onDispose() { if (this.snapTimer) clearInterval(this.snapTimer); if (this.simTimer) clearInterval(this.simTimer); }
+
+  // ---------- grupos (party) ----------
+  private parties = new Map<string, Set<string>>();
+  private invites = new Map<string, { from: string; at: number }>();   // convidado → convite
+  private pid = 0;
+  private say(p: Peer, t: string, ch: ChatMsg['ch'] = 'sistema', name = 'Sistema') { p.send('chat', { id: '', name, t, ch } satisfies ChatMsg); }
+  private members(p: Peer): Peer[] { return p.party ? [...(this.parties.get(p.party) ?? [])].map((i) => this.peers.get(i)).filter((x): x is Peer => !!x) : []; }
+  private leaveParty(p: Peer, why = 'saiu do grupo') {
+    const id = p.party; if (!id) return;
+    const set = this.parties.get(id); p.party = undefined; set?.delete(p.id);
+    if (!set) return;
+    const rest = [...set].map((i) => this.peers.get(i)).filter((x): x is Peer => !!x);
+    for (const o of rest) this.say(o, `${p.name} ${why}.`);
+    if (rest.length < 2) { for (const o of rest) { o.party = undefined; this.say(o, 'O grupo foi desfeito.'); } this.parties.delete(id); }
+  }
+  /** comandos de chat: /grupo convidar Nome | aceitar | sair | lista, e /g mensagem */
+  private command(p: Peer, t: string): boolean {
+    const [cmd, sub, ...rest] = t.slice(1).split(/\s+/);
+    const c = cmd.toLowerCase();
+    if (c === 'g') {
+      const txt = [sub, ...rest].filter(Boolean).join(' ');
+      if (!p.party) { this.say(p, 'Você não está em um grupo. Use /grupo convidar Nome.'); return true; }
+      if (txt) for (const o of this.members(p)) this.say(o, txt, 'grupo', p.name);
+      return true;
+    }
+    if (c !== 'grupo' && c !== 'party') return false;
+    const s = (sub ?? 'lista').toLowerCase();
+    if (s === 'convidar') {
+      const name = rest.join(' ').toLowerCase();
+      const o = [...this.peers.values()].find((x) => x.name.toLowerCase() === name && x !== p);
+      if (!o) { this.say(p, 'Aventureiro não encontrado online.'); return true; }
+      if (o.party) { this.say(p, `${o.name} já está em um grupo.`); return true; }
+      if (p.party && (this.parties.get(p.party)?.size ?? 0) >= 5) { this.say(p, 'O grupo já tem 5 membros.'); return true; }
+      this.invites.set(o.id, { from: p.id, at: Date.now() });
+      this.say(p, `Convite enviado a ${o.name}.`);
+      this.say(o, `${p.name} convidou você para um grupo. Digite /grupo aceitar (vale 60 s).`);
+    } else if (s === 'aceitar') {
+      const inv = this.invites.get(p.id); this.invites.delete(p.id);
+      const from = inv && Date.now() - inv.at < 60_000 ? this.peers.get(inv.from) : undefined;
+      if (!from) { this.say(p, 'Nenhum convite válido.'); return true; }
+      if (p.party) { this.say(p, 'Você já está em um grupo.'); return true; }
+      if (!from.party) { from.party = 'g' + ++this.pid; this.parties.set(from.party, new Set([from.id])); }
+      const set = this.parties.get(from.party)!;
+      if (set.size >= 5) { this.say(p, 'O grupo está cheio.'); return true; }
+      set.add(p.id); p.party = from.party;
+      for (const o of this.members(p)) this.say(o, `${p.name} entrou no grupo.`);
+    } else if (s === 'sair') {
+      if (!p.party) this.say(p, 'Você não está em um grupo.'); else { this.say(p, 'Você saiu do grupo.'); this.leaveParty(p); }
+    } else {
+      const m = this.members(p);
+      this.say(p, m.length ? `Grupo: ${m.map((x) => `${x.name} (nv ${x.level})`).join(', ')}` : 'Você não está em um grupo. Use /grupo convidar Nome. Comandos: /grupo convidar|aceitar|sair, /g mensagem.');
+    }
+    return true;
+  }
 
   private sendReady(client: Client) { client.send('ready', { n: this.sim.spawnCount, h: this.sim.sig } satisfies ReadyMsg); }
 
@@ -162,7 +232,9 @@ export class WorldRoom extends Room {
   onLeave(client: Client) {
     const p = this.peers.get(client.sessionId);
     this.peers.delete(client.sessionId);
+    this.invites.delete(client.sessionId);
     if (p) {
+      this.leaveParty(p, 'desconectou');
       this.notifyOthers(p, 'leave', { id: p.id });
       this.broadcast('online', { n: this.peers.size });
       console.log(`[-] ${p.name} saiu (${this.peers.size} online)`);

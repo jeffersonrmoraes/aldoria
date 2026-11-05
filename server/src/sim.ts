@@ -14,10 +14,12 @@ export interface SimPlayer {
   sheet: PlayerState | null; d: Derived | null;
   buffs: { until: number; buff: Buff }[]; cds: Record<string, number>;
   lastAtk: number; lastMn: number;
+  party?: string;
   send(type: string, msg: unknown): void;
 }
 
 const IDLE = 0, CHASE = 1, BACK = 2;
+const PARTY_RANGE = 900;   // membros do grupo dentro desse raio dividem a morte do monstro
 const SLACK = 45;          // tolerância (px) à latência na validação de alcance
 const SEE = 640;           // raio de interesse: monstros mais longe que isso não são enviados
 const WAKE = 760;          // monstros só são simulados perto de algum jogador
@@ -188,7 +190,14 @@ export class WorldSim {
     m.dead = true; m.vx = m.vy = 0; m.windup = 0; m.state = IDLE; m.tgt = '';
     m.respawnAt = Date.now() + rand(18000, 28000);
     m.dots.length = 0;
-    for (const [id] of m.contrib) {
+    // quem deu dano + membros do grupo deles que estão por perto
+    const got = new Set<string>(m.contrib.keys());
+    for (const id of [...got]) {
+      const a = this.byId.get(id);
+      if (!a?.party) continue;
+      for (const q of wp) if (q.party === a.party && q.loc === 'world' && !q.dead && Math.hypot(q.x - m.x, q.y - m.y) <= PARTY_RANGE) got.add(q.id);
+    }
+    for (const id of got) {
       const p = this.byId.get(id);
       if (!p || !p.sheet || !p.d || p.loc !== 'world' || !wp.includes(p)) continue;
       const xp = killXp(m.def, p.sheet.level, p.sheet.raceId, p.d.xpPct);

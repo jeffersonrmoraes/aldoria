@@ -5,7 +5,7 @@ const HTTP = (process.argv[2] ?? 'ws://localhost:2599').replace(/^ws/, 'http');
 let _tok; const tok = async () => _tok ??= (await (await fetch(HTTP + '/api/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ user: 'bot' + Math.random().toString(36).slice(2, 9), pass: 'senha123' }) })).json()).token;
 
 const c = new Client(process.argv[2] ?? 'ws://localhost:2599');
-const room = await c.joinOrCreate('world', { v: 4, tok: await tok(), name: 'Bot', raceId: 'human', classId: 'barbarian', tone: 'a', level: 3 });
+const room = await c.joinOrCreate('world', { v: 5, tok: await tok(), name: 'Bot', raceId: 'human', classId: 'barbarian', tone: 'a', level: 3 });
 let ready, mobs = [], kills = [], hits = [], hurts = [];
 room.onMessage('ready', (m) => { ready = m; });
 room.onMessage('mobs', (a) => { mobs = a; });
