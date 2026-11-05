@@ -9,9 +9,12 @@ import barbarian from '../assets/models/Barbarian.glb?url';
 import mage from '../assets/models/Mage.glb?url';
 import rogue from '../assets/models/Rogue.glb?url';
 import skeleton from '../assets/models/Skeleton_Warrior.glb?url';
+import skMinion from '../assets/models/Skeleton_Minion.glb?url';
+import skMage from '../assets/models/Skeleton_Mage.glb?url';
+import skRogue from '../assets/models/Skeleton_Rogue.glb?url';
 import anims from '../assets/models/anims.glb?url';
 
-const URLS: Record<string, string> = { Knight: knight, Barbarian: barbarian, Mage: mage, Rogue: rogue, Skeleton: skeleton };
+const URLS: Record<string, string> = { Knight: knight, Barbarian: barbarian, Mage: mage, Rogue: rogue, Skeleton: skeleton, SkMinion: skMinion, SkMage: skMage, SkRogue: skRogue };
 export const CHAR_H = 1.7; // altura padrão (em tiles) de um personagem de escala 1
 
 const base: Record<string, THREE.Object3D> = {};

@@ -65,7 +65,8 @@ const ZONE_SKY: Record<string, [string, string, number]> = {
 };
 const mobHeight = (id: string, scale = 1) => {
   const s = MOB_SPEC[id];
-  if (s === 'rat') return 0.55 * scale; if (s === 'wolf') return 1.15 * scale; if (s === 'slime') return 0.75 * scale;
+  if (s === 'rat' || s === 'ratking') return 0.55 * scale; if (s === 'wolf' || s === 'jackal' || s === 'worg') return 1.15 * scale; if (s === 'slime') return 0.75 * scale;
+  if (typeof s === 'string') return CHAR_H;
   return CHAR_H * (s.scale ?? 1);
 };
 const CAST_SCALE = 0.55; // casts de chefe ~45% mais rápidos

@@ -15,14 +15,96 @@ export interface Visual {
 }
 
 export interface ModelSpec {
-  model: 'Knight' | 'Barbarian' | 'Mage' | 'Rogue' | 'Skeleton';
+  model: 'Knight' | 'Barbarian' | 'Mage' | 'Rogue' | 'Skeleton' | 'SkMinion' | 'SkMage' | 'SkRogue';
   scale?: number;
+  eyeColor?: string;        // recolore os olhos brilhantes dos modelos de esqueleto
+  skin?: string;            // cor da cabeça/rosto (monstros não-humanos)
+  wide?: number;            // estica/afina o corpo (largura/profundidade) para variar a silhueta
+  parts?: PartDef[];        // acessórios procedurais (chifres, presas, orelhas, olhos brilhantes...)
+  opacity?: number;         // fantasmas/sombras
   show?: string[];          // itens nas mãos / acessórios visíveis
   hide?: string[];          // peças a esconder (ex.: chapéu)
   tint?: string;            // tinge o modelo todo
   cape?: string;            // tinge capa/chapéu/elmo
   melee?: string;           // clipe de ataque corpo a corpo
 }
+
+export interface PartDef { k: 'horn' | 'ears' | 'tusks' | 'fangs' | 'eyes' | 'crest' | 'crown' | 'tail' | 'spikes' | 'mane' | 'hornsBig' | 'nose'; c?: string; s?: number; }
+
+const pm = (c: string, e = 0) => new THREE.MeshLambertMaterial({ color: c, emissive: e ? c : '#000', emissiveIntensity: e });
+/** Monta um acessório. Eixos: +Y cima, +Z frente do personagem; unidades em tiles (personagem ≈ 1,7). */
+function buildPart(d: PartDef, tint?: string): THREE.Object3D {
+  const g = new THREE.Group(), sc = d.s ?? 1;
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); g.add(m); return m;
+  };
+  const ivory = d.c ?? '#efe6cf';
+  switch (d.k) {
+    case 'horn': case 'hornsBig': {
+      const big = d.k === 'hornsBig', mat = pm(d.c ?? '#d9ccb0');
+      for (const sx of [-1, 1]) {
+        const h = new THREE.Group(); h.position.set(sx * 0.13, 0.1, 0.02); h.rotation.z = -sx * (big ? 0.9 : 0.45); g.add(h);
+        const a = new THREE.Mesh(new THREE.ConeGeometry(0.06 * sc, (big ? 0.42 : 0.24) * sc, 6), mat); a.position.y = (big ? 0.2 : 0.11) * sc; h.add(a);
+        if (big) { const b = new THREE.Mesh(new THREE.ConeGeometry(0.04 * sc, 0.26 * sc, 6), mat); b.position.set(-sx * 0.1 * sc, 0.46 * sc, 0); b.rotation.z = sx * 0.9; h.add(b); }
+      }
+      break;
+    }
+    case 'ears': {
+      const mat = pm(d.c ?? tint ?? '#8bbf6a');
+      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.075 * sc, 0.34 * sc, 4), mat, sx * (0.14 + 0.1 * sc), 0.02, -0.02, 0, 0, -sx * 1.15);
+      break;
+    }
+    case 'tusks': {
+      const mat = pm(ivory);
+      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.035 * sc, 0.2 * sc, 5), mat, sx * 0.11, -0.1, 0.3, -0.35, 0, sx * 0.15);
+      break;
+    }
+    case 'fangs': {
+      const mat = pm(ivory);
+      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.02 * sc, 0.1 * sc, 4), mat, sx * 0.07, -0.12, 0.31, Math.PI, 0, 0);
+      break;
+    }
+    case 'eyes': {
+      const mat = pm(d.c ?? '#ff3b2b', 1.4);
+      for (const sx of [-1, 1]) add(new THREE.SphereGeometry(0.032 * sc, 8, 6), mat, sx * 0.11, 0.05, 0.31);
+      break;
+    }
+    case 'crest': {
+      const mat = pm(d.c ?? '#6b3a22');
+      for (let i = 0; i < 5; i++) add(new THREE.ConeGeometry(0.04 * sc, (0.2 - Math.abs(i - 2) * 0.03) * sc, 4), mat, 0, 0.13 - i * 0.002, 0.12 - i * 0.07, -0.3, 0, 0);
+      break;
+    }
+    case 'crown': {
+      const mat = pm(d.c ?? '#f1c40f', 0.35);
+      add(new THREE.CylinderGeometry(0.15 * sc, 0.17 * sc, 0.07 * sc, 10, 1, true), mat, 0, 0.5, 0);
+      for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; add(new THREE.ConeGeometry(0.03 * sc, 0.1 * sc, 4), mat, Math.sin(a) * 0.16 * sc, 0.56, Math.cos(a) * 0.16 * sc); }
+      break;
+    }
+    case 'mane': {
+      const mat = pm(d.c ?? '#5a3a1e');
+      for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; add(new THREE.ConeGeometry(0.06 * sc, 0.26 * sc, 4), mat, Math.sin(a) * 0.22 * sc, -0.1, Math.cos(a) * 0.22 * sc - 0.02, Math.cos(a) * 1.2, 0, -Math.sin(a) * 1.2); }
+      break;
+    }
+    case 'nose': {
+      add(new THREE.ConeGeometry(0.05 * sc, 0.2 * sc, 5), pm(d.c ?? tint ?? '#7aa05a'), 0, -0.04, 0.33, Math.PI / 2, 0, 0);
+      break;
+    }
+    case 'tail': {
+      const mat = pm(d.c ?? tint ?? '#b0603a');
+      add(new THREE.ConeGeometry(0.07 * sc, 0.6 * sc, 6), mat, 0, -0.12, -0.32 * sc, -1.9, 0, 0);
+      break;
+    }
+    case 'spikes': {
+      const mat = pm(d.c ?? '#d9ccb0');
+      for (let i = 0; i < 5; i++) add(new THREE.ConeGeometry(0.05 * sc, 0.2 * sc, 4), mat, ((i % 2) - 0.5) * 0.14, 0.14 - i * 0.11, -0.16, -1.2, 0, 0);
+      break;
+    }
+  }
+  return g;
+}
+const PART_BONE: Record<PartDef['k'], string> = { horn: 'head', hornsBig: 'head', ears: 'head', tusks: 'head', fangs: 'head', eyes: 'head', crest: 'head', crown: 'head', mane: 'head', nose: 'head', tail: 'hips', spikes: 'chest' };
+const HEAD_K: Record<string, number> = { Barbarian: 1.55, Knight: 1.1, Mage: 1.0, Rogue: 1.0, Skeleton: 1.15, SkMinion: 1.15, SkMage: 1.15, SkRogue: 1.15 };
+const PART_OFF: Record<string, [number, number, number]> = { head: [0, 0.2, 0], hips: [0, 0, 0], chest: [0, 0, 0] };
 
 const HELD = /^(1H_|2H_|Knife|Mug|Throwable|Spellbook|Round_Shield|Badge_Shield|Rectangle_Shield|Spike_Shield|Barbarian_Round_Shield)/;
 
@@ -61,12 +143,41 @@ export class SkinnedActor implements Visual {
       const mat = mesh.material as THREE.MeshStandardMaterial;
       this.mats.push(mat);
       if (/_Head$/.test(o.name)) this.head = mesh;
-      if (tint && !/_Head$/.test(o.name)) mat.color.copy(tint);
+      if (tint && !/_(Head|Eyes)$/.test(o.name)) mat.color.copy(tint);
+      if (spec.eyeColor && /_Eyes$/.test(o.name)) { mat.color.set(spec.eyeColor); mat.emissive.set(spec.eyeColor); mat.emissiveIntensity = 1.2; }
+      if (spec.skin && /_Head$/.test(o.name)) mat.color.set(spec.skin);
       if (cape && /(Cape|Hat|Helmet|Cloak)$/.test(o.name)) mat.color.copy(cape);
     });
     this.mixer = new THREE.AnimationMixer(this.model);
     this.play('Idle');
     this.mixer.update(Math.random() * 2);
+    if (spec.opacity !== undefined) for (const m of this.mats) { m.transparent = true; m.opacity = spec.opacity; m.depthWrite = false; }
+    if (spec.parts?.length) this.addParts(spec.parts, spec.tint);
+    if (spec.wide) this.model.scale.x *= spec.wide, this.model.scale.z *= spec.wide;
+  }
+
+  /** Prende acessórios procedurais aos ossos (cabeça/quadril/peito), já alinhados aos eixos do personagem. */
+  private addParts(parts: PartDef[], tint?: string) {
+    this.root.updateMatrixWorld(true);
+    const bones: Record<string, THREE.Object3D | undefined> = {};
+    this.model.traverse((o) => { if (['head', 'hips', 'chest'].includes(o.name) && !bones[o.name]) bones[o.name] = o; });
+    for (const d of parts) {
+      const bn = PART_BONE[d.k], bone = bones[bn];
+      if (!bone) continue;
+      const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+      bone.matrixWorld.decompose(p, q, sc);
+      const wrap = new THREE.Group();
+      wrap.quaternion.copy(q).invert();
+      wrap.scale.set(1 / sc.x, 1 / sc.y, 1 / sc.z);
+      const o = PART_OFF[bn];
+      const part = buildPart(d, tint);
+      const k = (bn === 'head' ? (HEAD_K[this.spec.model] ?? 1) : 1) * Math.pow(this.spec.scale ?? 1, 0.8);
+      part.scale.setScalar(k);
+      part.position.set(o[0] * k, o[1] * k + (d.k === 'eyes' && this.spec.model === 'Barbarian' ? -0.04 * k : 0), o[2] * k);
+      wrap.add(part);
+      bone.add(wrap);
+      part.traverse((m) => { const mesh = m as THREE.Mesh; if (mesh.isMesh) mesh.castShadow = false; });
+    }
   }
 
   /** Mostra apenas as peças seguradas indicadas (se o modelo tiver cada uma). */
@@ -161,7 +272,10 @@ export class ProcCreature implements Visual {
   private mats: THREE.MeshLambertMaterial[] = [];
   private flashT = 0;
 
-  constructor(public kind: 'rat' | 'wolf' | 'slime') {
+  kind: 'rat' | 'wolf' | 'slime';
+  constructor(variant: 'rat' | 'wolf' | 'slime' | 'jackal' | 'worg' | 'ratking') {
+    this.kind = variant === 'jackal' || variant === 'worg' ? 'wolf' : variant === 'ratking' ? 'rat' : variant;
+    const kind = this.kind;
     this.root.add(this.body);
     const add = (geo: THREE.BufferGeometry, mat: THREE.MeshLambertMaterial, x: number, y: number, z: number, parent: THREE.Object3D = this.body) => {
       const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); this.mats.push(mat); return m;
@@ -182,6 +296,15 @@ export class ProcCreature implements Visual {
       const tail = new THREE.Group(); tail.position.set(0, 0.2, -0.3); this.body.add(tail); this.tail = tail;
       add(new THREE.CylinderGeometry(0.025, 0.04, 0.5, 5).rotateX(Math.PI / 2.3), pink, 0, 0, -0.22, tail);
       for (const [x, z] of [[-0.12, 0.18], [0.12, 0.18], [-0.12, -0.18], [0.12, -0.18]]) this.legs.push(add(new THREE.BoxGeometry(0.06, 0.12, 0.08), fur, x, 0.06, z));
+      if (variant === 'ratking') {
+        fur.color.set('#4a3a34'); fur.emissive.set('#1a0a08');
+        const gold = lam('#f1c40f', { emissive: '#7a5a00' });
+        add(new THREE.CylinderGeometry(0.1, 0.12, 0.07, 8, 1, true), gold, 0, 0.45, 0.34);
+        for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; add(new THREE.ConeGeometry(0.025, 0.09, 4), gold, Math.sin(a) * 0.11, 0.52, 0.34 + Math.cos(a) * 0.11); }
+        for (const x of [-0.09, 0.09]) add(new THREE.SphereGeometry(0.035, 6, 5), lam('#ff3a2a', { emissive: '#ff2200' }), x, 0.32, 0.5);
+        add(new THREE.ConeGeometry(0.03, 0.12, 4), lam('#efe6cf'), -0.06, 0.18, 0.62).rotation.x = Math.PI;
+        add(new THREE.ConeGeometry(0.03, 0.12, 4), lam('#efe6cf'), 0.06, 0.18, 0.62).rotation.x = Math.PI;
+      }
     } else {
       const fur = lam('#8a8c94'), dark = lam('#55575f');
       add(new THREE.BoxGeometry(0.44, 0.44, 1.0), fur, 0, 0.62, 0);
@@ -192,6 +315,19 @@ export class ProcCreature implements Visual {
       const tail = new THREE.Group(); tail.position.set(0, 0.8, -0.5); this.body.add(tail); this.tail = tail;
       add(new THREE.ConeGeometry(0.1, 0.55, 6).rotateX(-Math.PI / 2.4), fur, 0, -0.1, -0.2, tail);
       for (const [x, z] of [[-0.15, 0.36], [0.15, 0.36], [-0.15, -0.36], [0.15, -0.36]]) this.legs.push(add(new THREE.BoxGeometry(0.12, 0.4, 0.12), dark, x, 0.2, z));
+      if (variant === 'jackal') {
+        // chacal: pelagem areia, focinho fino e orelhas enormes
+        fur.color.set('#c9a25a'); dark.color.set('#7a5a2a');
+        add(new THREE.ConeGeometry(0.1, 0.34, 4), fur, -0.14, 1.12, 0.56).rotation.z = 0.15;
+        add(new THREE.ConeGeometry(0.1, 0.34, 4), fur, 0.14, 1.12, 0.56).rotation.z = -0.15;
+      } else if (variant === 'worg') {
+        // worg: pelo negro eriçado, crina de espinhos e olhos vermelhos
+        fur.color.set('#33333b'); dark.color.set('#1c1c22');
+        for (let i = 0; i < 5; i++) add(new THREE.ConeGeometry(0.06, 0.2, 4), dark, 0, 0.9 - i * 0.02, 0.4 - i * 0.2).rotation.x = -0.2;
+        const red = lam('#ff3a2a', { emissive: '#ff1a00' });
+        add(new THREE.SphereGeometry(0.045, 6, 5), red, -0.1, 0.84, 0.82); add(new THREE.SphereGeometry(0.045, 6, 5), red, 0.1, 0.84, 0.82);
+        for (const x of [-0.05, 0.05]) add(new THREE.ConeGeometry(0.025, 0.1, 4), lam('#efe6cf'), x, 0.6, 1.0).rotation.x = Math.PI;
+      }
     }
   }
 
@@ -287,30 +423,34 @@ function addRacialTraits(a: SkinnedActor, look: (typeof RACE_BY_ID)[string]['loo
 }
 
 // ---------- monstros ----------
-export const MOB_SPEC: Record<string, ModelSpec | 'rat' | 'wolf' | 'slime'> = {
-  rat: 'rat', wolf: 'wolf', slime: 'slime', jackal: 'wolf', worg: 'wolf',
-  kobold: { model: 'Rogue', scale: 0.62, show: ['Knife'], tint: '#e5835a' },
-  goblin: { model: 'Rogue', scale: 0.74, show: ['Knife'], tint: '#a6d878' },
-  skeleton: { model: 'Skeleton' },
-  bandit: { model: 'Rogue', scale: 0.95, show: ['Knife'], tint: '#c99a6a', cape: '#5a3a2a' },
-  hobgoblin: { model: 'Knight', scale: 0.9, show: ['1H_Sword', 'Round_Shield'], tint: '#c47a4a' },
-  ghoul: { model: 'Barbarian', scale: 0.95, hide: ['Barbarian_Hat'], tint: '#7a9a8a', melee: 'Unarmed_Melee_Attack_Punch_A' },
-  shadow: { model: 'Skeleton', scale: 1.1, tint: '#6a5a9a' },
-  orcshaman: { model: 'Mage', scale: 1.05, show: ['2H_Staff'], tint: '#7aaa5a', cape: '#5a2a1a', melee: 'Spellcast_Shoot' },
-  gnoll: { model: 'Barbarian', scale: 1.1, show: ['1H_Axe'], tint: '#c9a45a' },
-  troll: { model: 'Barbarian', scale: 1.9, hide: ['Barbarian_Hat'], tint: '#6aa05a', melee: 'Unarmed_Melee_Attack_Punch_A' },
-  zombie: { model: 'Barbarian', hide: ['Barbarian_Hat'], tint: '#9fb88a', melee: 'Unarmed_Melee_Attack_Punch_A' },
-  orc: { model: 'Barbarian', scale: 1.12, show: ['1H_Axe'], tint: '#93c276' },
-  bugbear: { model: 'Barbarian', scale: 1.4, show: ['2H_Axe'], tint: '#cf9a62', melee: '2H_Melee_Attack_Chop' },
-  ogre: { model: 'Barbarian', scale: 1.9, hide: ['Barbarian_Hat'], tint: '#dbb487', melee: 'Unarmed_Melee_Attack_Punch_A' },
-  gnarlmaw: { model: 'Barbarian', scale: 2.6, show: ['2H_Axe'], tint: '#e07562', melee: '2H_Melee_Attack_Chop' },
+export const MOB_SPEC: Record<string, ModelSpec | 'rat' | 'wolf' | 'slime' | 'jackal' | 'worg' | 'ratking'> = {
+  rat: 'rat', wolf: 'wolf', slime: 'slime', jackal: 'jackal', worg: 'worg',
+  // Pequenos: kobold (réptil de chifres e cauda), goblin (orelhas enormes)
+  kobold: { model: 'Rogue', skin: '#e08a5a', scale: 0.62, show: ['Knife'], tint: '#d9704a', parts: [{ k: 'horn', c: '#7a4a2a', s: 0.9 }, { k: 'tail', c: '#c25a3a' }, { k: 'eyes', c: '#ffe03a' }, { k: 'nose', c: '#c25a3a' }] },
+  goblin: { model: 'Rogue', skin: '#9fd86f', scale: 0.74, show: ['Knife'], tint: '#8fcf5f', parts: [{ k: 'ears', s: 1.5 }, { k: 'eyes', c: '#ff5a2a' }, { k: 'nose', c: '#79b84a', s: 1.2 }] },
+  // Mortos-vivos: cada um com um modelo/cor diferente
+  skeleton: { model: 'SkMinion', scale: 0.95, eyeColor: '#6fe0ff' },
+  zombie: { model: 'Barbarian', skin: '#a8bf94', hide: ['Barbarian_Hat'], tint: '#8fa87a', wide: 1.05, melee: 'Unarmed_Melee_Attack_Punch_A', parts: [{ k: 'eyes', c: '#d8e84a' }] },
+  ghoul: { model: 'SkMinion', scale: 1.0, wide: 0.9, tint: '#9fc4a8', eyeColor: '#fff04a', parts: [{ k: 'fangs', c: '#f4f4d0', s: 1.5 }], melee: 'Unarmed_Melee_Attack_Punch_A' },
+  shadow: { model: 'SkRogue', scale: 1.15, tint: '#3a2a5a', opacity: 0.6, eyeColor: '#c060ff' },
+  skelknight: { model: 'Skeleton', scale: 1.5, tint: '#8aa0d8', eyeColor: '#4aa8ff', parts: [{ k: 'spikes', c: '#9fb0d8' }] },
+  // Humanos
+  bandit: { model: 'Rogue', scale: 0.95, show: ['Knife'], tint: '#c99a6a', cape: '#5a2a2a' },
+  cultist: { model: 'Mage', skin: '#b8a8c8', show: ['1H_Wand'], tint: '#8a7aa8', cape: '#2a1a38', melee: 'Spellcast_Shoot', parts: [{ k: 'eyes', c: '#ff3b3b' }] },
+  hobgoblin: { model: 'Knight', skin: '#d8804a', scale: 0.92, show: ['1H_Sword', 'Round_Shield'], tint: '#c4683a', parts: [{ k: 'ears', c: '#c4683a', s: 1.1 }, { k: 'eyes', c: '#ffcc2a' }, { k: 'fangs', s: 1.2 }] },
+  // Orcs e parentes: presas, chifres e crinas distintas
+  orc: { model: 'Barbarian', hide: ['Barbarian_Hat'], skin: '#8fc86a', scale: 1.12, show: ['1H_Axe'], tint: '#7fb85e', wide: 1.1, parts: [{ k: 'tusks', s: 1.2 }, { k: 'eyes', c: '#ff4a2a' }] },
+  orcshaman: { model: 'Mage', skin: '#7ab85a', scale: 1.05, show: ['2H_Staff'], tint: '#6aa84a', cape: '#5a2a6a', melee: 'Spellcast_Shoot', parts: [{ k: 'tusks' }, { k: 'horn', c: '#e8e0c0', s: 1.3 }, { k: 'eyes', c: '#7aff5a' }] },
+  gnoll: { model: 'Barbarian', hide: ['Barbarian_Hat'], skin: '#e0b878', scale: 1.1, show: ['1H_Axe'], tint: '#d8b068', wide: 0.95, parts: [{ k: 'ears', c: '#8a6a3a', s: 1.1 }, { k: 'mane', c: '#6a4a22' }, { k: 'tail', c: '#8a6a3a' }, { k: 'fangs', s: 1.3 }, { k: 'eyes', c: '#ff7a2a' }] },
+  bugbear: { model: 'Barbarian', skin: '#c08a58', scale: 1.4, show: ['2H_Axe'], tint: '#b07a48', wide: 1.15, melee: '2H_Melee_Attack_Chop', parts: [{ k: 'ears', c: '#8a5a32' }, { k: 'mane', c: '#4a2e18', s: 1.2 }, { k: 'eyes', c: '#ffb02a' }] },
+  ogre: { model: 'Barbarian', skin: '#e0c088', scale: 1.9, hide: ['Barbarian_Hat'], tint: '#d9b878', wide: 1.4, melee: 'Unarmed_Melee_Attack_Punch_A', parts: [{ k: 'tusks', s: 1.0 }, { k: 'nose', c: '#c9a468', s: 1 }, { k: 'eyes', c: '#ff6a2a', s: 0.7 }] },
+  troll: { model: 'Barbarian', skin: '#6aaa6a', scale: 2.0, hide: ['Barbarian_Hat'], tint: '#4f9a5a', wide: 0.85, melee: 'Unarmed_Melee_Attack_Punch_A', parts: [{ k: 'nose', c: '#3f8a4a', s: 1.3 }, { k: 'tusks', s: 1.1 }, { k: 'spikes', c: '#2a6a34' }, { k: 'eyes', c: '#ff2a2a', s: 1 }] },
+  gnarlmaw: { model: 'Barbarian', hide: ['Barbarian_Hat'], skin: '#e0604a', scale: 2.6, show: ['2H_Axe'], tint: '#d04a3a', wide: 1.2, melee: '2H_Melee_Attack_Chop', parts: [{ k: 'hornsBig', c: '#2a1a14', s: 1.1 }, { k: 'tusks', s: 1.0 }, { k: 'spikes', c: '#2a1a14', s: 1.0 }, { k: 'eyes', c: '#ffe03a', s: 1.0 }] },
   // masmorras
-  ratking: 'rat',
-  goblinking: { model: 'Rogue', scale: 1.25, show: ['Knife', 'Knife_Offhand'], tint: '#86c85a', cape: '#d4a017' },
-  cultist: { model: 'Mage', show: ['1H_Wand'], tint: '#a3a1b8', cape: '#3a3a48', melee: 'Spellcast_Shoot' },
-  skelknight: { model: 'Skeleton', scale: 1.5, tint: '#b9c6ea' },
-  warlord: { model: 'Barbarian', scale: 1.75, show: ['2H_Axe'], tint: '#6fae55', melee: '2H_Melee_Attack_Chop' },
-  herald: { model: 'Mage', scale: 1.55, show: ['2H_Staff'], tint: '#b0a4d0', cape: '#15151f', melee: 'Spellcast_Shoot' },
+  ratking: 'ratking',
+  goblinking: { model: 'Rogue', skin: '#80d04f', scale: 1.25, show: ['Knife', 'Knife_Offhand'], tint: '#6fc03f', cape: '#d4a017', parts: [{ k: 'ears', s: 1.8 }, { k: 'crown' }, { k: 'eyes', c: '#ff3a1a', s: 1.3 }, { k: 'nose', c: '#5aa030', s: 1.4 }] },
+  warlord: { model: 'Barbarian', hide: ['Barbarian_Hat'], skin: '#6aaa55', scale: 1.75, show: ['2H_Axe'], tint: '#5a9a45', wide: 1.2, melee: '2H_Melee_Attack_Chop', parts: [{ k: 'hornsBig', c: '#c8b890', s: 0.9 }, { k: 'tusks', s: 1.0 }, { k: 'spikes', c: '#8a8a95' }, { k: 'eyes', c: '#ff2a1a', s: 1 }] },
+  herald: { model: 'SkMage', scale: 1.55, tint: '#9a7ad0', melee: 'Spellcast_Shoot', parts: [{ k: 'crown', c: '#b080ff', s: 1.1 }], eyeColor: '#d070ff' },
 };
 
 export function mobVisual(id: string, defScale: number): Visual {
