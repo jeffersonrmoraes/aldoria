@@ -53,7 +53,6 @@ interface Loc {
   arena?: { room: { x: number; y: number; w: number; h: number }; ring: { x: number; y: number }[]; gate: THREE.Group | null };
 }
 interface ActiveBuff { until: number; buff: Buff }
-interface ChestDrop { x: number; y: number; tier: 'wood' | 'gold'; mesh: THREE.Group; born: number; phase: number }
 interface Minion { v: Visual; x: number; y: number; until: number; nextAtk: number; face: number; ring: THREE.Mesh }
 interface Dot { m: Mob; left: number; next: number; dmg: number; color: number }
 interface Fx { update(dt: number): boolean }
@@ -116,8 +115,6 @@ export class World3D {
   private fx: Fx[] = [];
   private fxRoot = new THREE.Group();
   private vfx!: Vfx;
-  private chestRoot = new THREE.Group();
-  private chests: ChestDrop[] = [];
   private minions: Minion[] = [];
   private dots: Dot[] = [];
   private keys = new Set<string>();
@@ -163,7 +160,6 @@ export class World3D {
 
     const self = this;
     this.vfx = new Vfx({ root: this.fxRoot, get list() { return self.fx; } });
-    this.scene.add(this.chestRoot);
     this.build();
     this.bind();
     this.resize();
@@ -257,7 +253,6 @@ export class World3D {
     if (old) {
       this.scene.remove(old.group);
       for (const m of old.mobs) { this.scene.remove(m.v.root); if (m.label) m.label.style.display = 'none'; if (m.boss) m.boss.cast = null; }
-      this.collectAllChests();
       for (const mn of this.minions) this.scene.remove(mn.v.root, mn.ring);
       this.minions = []; this.dots = [];
       this.fxRoot.clear(); this.fx = [];
@@ -611,7 +606,6 @@ export class World3D {
     this.updateArena(now);
     if (!this.dead) this.updatePlayer(now, dt, buff);
     for (const m of this.mobs.slice()) this.updateMob(m, now, dt, buff);
-    this.updateChests(now, dt);
     this.updateMinions(now, dt);
     this.updateDots(now);
 
@@ -889,7 +883,6 @@ export class World3D {
       this.float(this.P(this.p.x, this.p.y, 2.0), '+' + this.d.manaKill + ' EN', '#8ab4ff', 8);
       this.vfx.rise(this.P(this.p.x, this.p.y, 0.3), 0x6ab0ff, 6, 0.5, 0.8);
     }
-    if (Math.random() < (m.def.boss ? 1 : 0.01)) this.spawnChest(m.x, m.y, m.def.boss ? 'gold' : 'wood');
     for (const q of [...QUESTS, ...MAIN_QUESTS]) {
       const st = player.quests[q.id];
       if (st && st.state === 'active' && q.mob === m.def.id) {
@@ -1124,49 +1117,6 @@ export class World3D {
       mn.ring.position.copy(this.P(mn.x, mn.y, 0.12)); mn.ring.scale.setScalar(1 + Math.sin(now * 0.008) * 0.08);
       (mn.ring.material as THREE.MeshBasicMaterial).opacity = Math.min(0.7, (mn.until - now) / 1500) ;
       mn.v.update(dt, now);
-    }
-  }
-
-  // ---------- baús (gacha) ----------
-  private spawnChest(x: number, y: number, tier: 'wood' | 'gold') {
-    const g = new THREE.Group();
-    const wood = new THREE.MeshLambertMaterial({ color: tier === 'gold' ? '#7a4a1a' : '#8a5a2e' });
-    const trim = new THREE.MeshLambertMaterial({ color: tier === 'gold' ? '#ffd23f' : '#9aa0aa' });
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.6), wood); base.position.y = 0.25;
-    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2).rotateY(Math.PI / 2), wood); lid.position.y = 0.5; lid.rotation.y = Math.PI / 2;
-    lid.rotation.set(0, Math.PI / 2, 0);
-    const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.64), trim); b1.position.set(-0.28, 0.27, 0);
-    const b2 = b1.clone(); b2.position.x = 0.28;
-    const lock = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.06), trim); lock.position.set(0, 0.42, 0.32);
-    const beamCol = tier === 'gold' ? 0xffd23f : 0xbfe0ff;
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, tier === 'gold' ? 7 : 4, 10, 1, true), new THREE.MeshBasicMaterial({ color: beamCol, transparent: true, opacity: tier === 'gold' ? 0.38 : 0.25, depthWrite: false, side: THREE.DoubleSide }));
-    beam.position.y = tier === 'gold' ? 3.6 : 2.1;
-    if (tier === 'gold') g.scale.setScalar(1.35);
-    g.add(base, lid, b1, b2, lock, beam);
-    g.position.copy(this.P(x, y, 0.1));
-    this.chestRoot.add(g);
-    this.chests.push({ x, y, tier, mesh: g, born: this.now, phase: Math.random() * 6 });
-    this.vfx.impact(this.P(x, y, 0.6), beamCol, true); this.vfx.rise(this.P(x, y, 0.2), beamCol, 14, 0.7, 1.2);
-    bus.emit('log', tier === 'gold' ? '📦 O chefe deixou um Baú Dourado!' : '📦 Um Baú de Madeira apareceu!', tier === 'gold' ? '#ffd23f' : '#bfe0ff');
-  }
-  private collectChest(c: ChestDrop) {
-    const ch = (player.chests ??= { wood: 0, gold: 0 });
-    ch[c.tier]++;
-    this.chestRoot.remove(c.mesh);
-    this.chests.splice(this.chests.indexOf(c), 1);
-    this.vfx.spark(this.P(c.x, c.y, 0.6), c.tier === 'gold' ? 0xffd23f : 0xbfe0ff, 12, 2, 0.6);
-    this.float(this.P(this.p.x, this.p.y, 2.4), c.tier === 'gold' ? '📦 Baú Dourado!' : '📦 Baú de Madeira!', c.tier === 'gold' ? '#ffd23f' : '#bfe0ff', 10);
-    bus.emit('log', `Você guardou um Baú ${c.tier === 'gold' ? 'Dourado' : 'de Madeira'}. Abra em Baús (tecla B).`, '#ffd23f');
-    bus.emit('chest'); save();
-  }
-  private collectAllChests() { for (const c of this.chests.slice()) this.collectChest(c); }
-  private updateChests(now: number, dt: number) {
-    for (const c of this.chests.slice()) {
-      c.mesh.position.y = this.terrain.groundY(c.x, c.y) + 0.1 + Math.sin(now * 0.003 + c.phase) * 0.06;
-      c.mesh.rotation.y += dt * 0.6;
-      if (Math.random() < dt * 4) this.vfx.rise(this.P(c.x, c.y, 0.3), c.tier === 'gold' ? 0xffd23f : 0xbfe0ff, 1, 0.4, 1.0);
-      if (!this.dead && this.distTo(c) < 28) this.collectChest(c);
-      else if (now - c.born > 240000) this.collectChest(c);
     }
   }
 

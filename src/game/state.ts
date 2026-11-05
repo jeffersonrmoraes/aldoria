@@ -32,9 +32,6 @@ export interface PlayerState {
   /** nós comprados nas árvores de habilidade e de atributos */
   skills?: Record<string, 1>;
   attrs?: Record<string, 1>;
-  /** baús (gacha) guardados e contador de "pity" por tipo */
-  chests?: { wood: number; gold: number };
-  pity?: { wood: number; gold: number };
 }
 
 export const BAG_SIZE = 24;

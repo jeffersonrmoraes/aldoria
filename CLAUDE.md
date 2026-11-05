@@ -37,13 +37,13 @@ Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WE
 - **Conjuradores** (Bardo, Bruxo, Druida, Feiticeiro, Mago): cajados (2 mãos) + **varinhas e livros** (1 mão): Varinha de Carvalho/Cristal/Rúnica/do Arquimago, Livro de Feitiços, Grimório de Guerra, Tomo Arcano, Livro do Arquimago. Vendidos pelo Sábio.
 - `isTwoHanded()` reconhece arco, besta (exceto "Besta de Pulso"), cajado, bordão, Montante e Machado Grande.
 
-## Sistemas da grande atualização (classes, árvores, conjuntos, encantos, baús, economia)
+## Sistemas da grande atualização (classes, árvores, conjuntos, encantos, economia)
 - **Classes novas** (`src/data/classes.ts`): Necromante (drain/summon), Cavaleiro Arcano, Dançarino das Lâminas, Ilusionista — todas existem no SRD/guias de D&D (escolas e arquétipos).
 - **Árvores** (`src/data/progression.ts`, tecla **K**): *Habilidades* (por habilidade: Potência → Eficiência → Maestria + ramo passivo de Treino) e *Atributos* (3 caminhos × 4 nós). Pontos: habilidades = nível (+1 nos níveis 5 e 10); atributos = nível−1 (+1 nos níveis 5 e 10). Redistribuir custa nível×60 de ouro.
 - **Bônus unificado** (`Bonus` em `rules.ts`): itens, conjuntos, árvores e encantos somam via `derive()`.
 - **Conjuntos** (`src/data/sets.ts`): bônus com 2/3/4 peças (ex.: Aprendiz/Arquimago, Lich, Mosteiro, Couro, Placas…), casados pelo nome-base do item.
 - **Encantos** (`src/data/enchants.ts`): Vampirismo, Sede de Mana (mana ao matar), Fúria, Precisão, Rapidez, Fortuna, Sabedoria + efeitos (chama, gelo, raio, veneno), níveis I–III; mesa de encantamento no Sábio.
-- **Baús** (tecla **B**, `src/data/gacha.ts`): monstros têm 1% de chance, chefes 100%. Baú de Madeira (1 item, pity 10→Épico) e de Ouro (3 itens, pity 5→Lendário). Coletados ao tocar; abertos no menu B.
+- **Sem baús/loot box**: removidos por decisão do projeto. Chefes sempre largam um item (raridade alta); monstros comuns ~32% de chance de item.
 - **Economia** (`src/data/economy.ts`): lojista especialista paga 1,6+0,12×raridade do valor (loja errada 0,8); saturação −5% por venda (recupera em 40 s); Carisma melhora vendas e descontos; bolsa cheia converte o excedente em ouro.
 - **VFX por classe** (`src/scenes/vfx.ts`): flecha, virote, orbe, fogo, raio, nota, espinho, radiante, crânio, prisma; golpes (corte, machado, estocada, soco, dança, sagrado, arcano).
 - **Mundo**: 400×300 tiles, vila com raio 36 e anel externo de lojas de classe: Ordem do Sol Nascente (Clérigo), Círculo do Carvalho (Druida), Salão da Canção (Bardo), Cripta Sombria (Necromante), Salão do Machado Vermelho (Bárbaro). Terreno em *chunks* de 40 tiles e árvores instanciadas por chunk (frustum culling). Save v3 reposiciona o jogador na vila.

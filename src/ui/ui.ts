@@ -16,7 +16,6 @@ import { attrTree, attrPointsLeft, attrPointsTotal, buyNode, nodeState, respecCo
 import { ENCHANTS, ROMAN, enchantCost, enchLine } from '../data/enchants';
 import { SET_BY_ID, activeSets, setTipHtml } from '../data/sets';
 import { buyPrice, buysItem, dumpValue, fmtGold, potionPrice, registerSale, sellOffer } from '../data/economy';
-import { CHEST_INFO, ChestTier, openChest } from '../data/gacha';
 import { bonusLines } from '../data/rules';
 
 const root = document.getElementById('ui')!;
@@ -135,7 +134,7 @@ export function initHud() {
     <div id="hud-tr">
       <div id="zone" class="panel">—</div>
       <div class="panel" style="padding:4px 10px;font-size:13px">🪙 <b id="gold" style="color:var(--gold)"></b></div>
-      <div class="btns hit"><button id="bi">Inventário (I)</button><button id="bc">Personagem (C)</button><button id="bk">Habilidades (K)</button><button id="bb">Baús (B)</button><button id="bm">Mapa (M)</button><button id="bp">Menu (Esc)</button><button id="bj">Diário (L)</button><button id="bh">Ajuda (F1)</button></div>
+      <div class="btns hit"><button id="bi">Inventário (I)</button><button id="bc">Personagem (C)</button><button id="bk">Habilidades (K)</button><button id="bm">Mapa (M)</button><button id="bp">Menu (Esc)</button><button id="bj">Diário (L)</button><button id="bh">Ajuda (F1)</button></div>
     </div>
     <div id="bossbar" class="panel hidden"><div id="bname"></div><div class="bar" style="height:14px"><i id="bhp" style="background:#c0392b"></i></div><div id="bcast" style="display:none"><div id="bcn"></div><div class="bar" style="height:8px"><i id="bci" style="background:#ffb03a"></i></div></div></div>
     <div id="target" class="panel hidden"><div id="tname"></div><div class="bar"><i id="thp" style="background:var(--hp)"></i></div></div>
@@ -170,7 +169,6 @@ export function initHud() {
   q('#bj').onclick = () => toggleWin('journal');
   q('#bm').onclick = () => toggleWin('map');
   q('#bk').onclick = () => toggleWin('skills');
-  q('#bb').onclick = () => toggleWin('chests');
   q('#bp').onclick = () => toggleWin('pause');
   resetMapCache();
 
@@ -221,7 +219,6 @@ export function initHud() {
     else if (k === 'l') toggleWin('journal');
     else if (k === 'm') toggleWin('map');
     else if (k === 'k') toggleWin('skills');
-    else if (k === 'b') toggleWin('chests');
     else if (k === 'f1') { e.preventDefault(); toggleWin('help'); }
     else if (k === 'escape') { if (curWin) closeWin(); else toggleWin('pause'); }
   };
@@ -242,10 +239,9 @@ function onHud(s: {
   const span = Math.max(1, s.xpNext - s.xpCur);
   q('#xp').style.width = (player.level >= MAX_LEVEL ? 100 : Math.min(100, ((s.xp - s.xpCur) / span) * 100)) + '%';
   q('#gold').textContent = fmtGold(player.gold);
-  const pts = skillPointsLeft(player) + attrPointsLeft(player), nch = (player.chests?.wood ?? 0) + (player.chests?.gold ?? 0);
-  const bk = q('#bk'), bchest = q('#bb');
+  const pts = skillPointsLeft(player) + attrPointsLeft(player);
+  const bk = q('#bk');
   if (bk.dataset.n !== String(pts)) { bk.dataset.n = String(pts); bk.innerHTML = `Habilidades (K)${pts ? `<span class="badge">${pts}</span>` : ''}`; }
-  if (bchest.dataset.n !== String(nch)) { bchest.dataset.n = String(nch); bchest.innerHTML = `Baús (B)${nch ? `<span class="badge">${nch}</span>` : ''}`; }
 
   const pc = q('#pcast');
   if (s.pcast != null) { pc.classList.remove('hidden'); q('#pci', pc).style.width = s.pcast * 100 + '%'; } else pc.classList.add('hidden');
@@ -328,7 +324,7 @@ function onZone(z: ZoneDef) {
 }
 
 // ======================== JANELAS ========================
-type WinKind = 'inv' | 'char' | 'help' | 'npc' | 'journal' | 'map' | 'pause' | 'skills' | 'chests' | 'enchant';
+type WinKind = 'inv' | 'char' | 'help' | 'npc' | 'journal' | 'map' | 'pause' | 'skills' | 'enchant';
 let mapTimer: number | undefined;
 let mapTab: MapKind = 'global';
 let curWin: WinKind | null = null;
@@ -345,7 +341,6 @@ function toggleWin(k: WinKind) {
   else if (k === 'map') renderMap();
   else if (k === 'pause') renderPause();
   else if (k === 'skills') renderSkills('skills');
-  else if (k === 'chests') renderChests();
 }
 
 function renderPause() {
@@ -636,85 +631,6 @@ function renderSkills(tab: 'skills' | 'attrs') {
     if (player.gold < c) { onLog('Ouro insuficiente para redistribuir.', '#ff8a8a'); return; }
     player.gold -= c; player.skills = {}; player.attrs = {}; bus.emit('recalc'); save(); onLog('Pontos redistribuídos.', '#ffd23f'); renderSkills(tab);
   };
-}
-
-// ======================== BAÚS (GACHA) ========================
-function renderChests() {
-  const ch = player.chests ?? { wood: 0, gold: 0 }, pity = player.pity ?? { wood: 0, gold: 0 };
-  const row = (t: ChestTier) => {
-    const i = CHEST_INFO[t], n = ch[t], left = Math.max(1, i.pityEvery - (pity[t] ?? 0));
-    return `<div class="qrow" style="border-left:3px solid ${i.color};display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <span><span style="font-size:28px">${i.icon}</span> <b style="color:${i.color}">${i.name}</b> × ${n}<br><small style="color:#a79cc4">${i.items} ${i.items > 1 ? 'itens' : 'item'} por baú · garantia: ${RARITY_NAMES[i.pityMin]} ou melhor em ${left} ${left > 1 ? 'aberturas' : 'abertura'}</small></span>
-      <span class="row"><button data-o="${t}:1" ${n ? 'class="primary"' : 'disabled'}>Abrir</button><button data-o="${t}:${n}" ${n > 1 ? '' : 'disabled'}>Abrir todos</button></span></div>`;
-  };
-  const w = setWin(`<h3>Baús${closeBtn}</h3>
-    <div style="font-size:12px;color:#cfc8e8;margin-bottom:6px">Monstros comuns têm <b>1%</b> de chance de largar um Baú de Madeira; <b>chefes sempre</b> largam um Baú Dourado. Cada abertura é um sorteio — com garantia de raridade alta (“pity”).</div>
-    ${row('wood')}${row('gold')}
-    <div class="tip" style="min-height:0"><b>Chances por item</b><br>📦 Madeira: Comum ${CHEST_INFO.wood.weights[0]}% · Incomum ${CHEST_INFO.wood.weights[1]}% · Raro ${CHEST_INFO.wood.weights[2]}% · Épico ${CHEST_INFO.wood.weights[3]}% · Lendário ${CHEST_INFO.wood.weights[4]}%<br>🎁 Dourado: Raro ${CHEST_INFO.gold.weights[2]}% · Épico ${CHEST_INFO.gold.weights[3]}% · Lendário ${CHEST_INFO.gold.weights[4]}%</div>`);
-  bindClose(w);
-  w.querySelectorAll<HTMLElement>('[data-o]').forEach((b) => (b.onclick = () => { const [t, n] = b.dataset.o!.split(':'); openGacha(t as ChestTier, Number(n)); }));
-}
-
-function openGacha(tier: ChestTier, n: number) {
-  const ch = (player.chests ??= { wood: 0, gold: 0 }), pity = (player.pity ??= { wood: 0, gold: 0 });
-  n = Math.min(n, ch[tier]);
-  if (n <= 0) return;
-  const info = CHEST_INFO[tier], cls = CLASS_BY_ID[player.classId];
-  const got: { it: Item; sold: number }[] = [];
-  let gold = 0, pots = 0;
-  for (let i = 0; i < n; i++) {
-    const r = openChest(tier, player.level, cls, pity[tier] ?? 0);
-    pity[tier] = r.pityHit ? 0 : (pity[tier] ?? 0) + 1; ch[tier]--;
-    for (const it of r.items) { if (addItem(it)) got.push({ it, sold: 0 }); else { const g = dumpValue(it); player.gold += g; got.push({ it, sold: g }); } }
-    gold += r.gold; pots += r.potions;
-  }
-  player.gold += gold; player.potions.heal += pots;
-  save();
-  closeWin();
-  const best = Math.max(...got.map((g) => g.it.rarity));
-  const ov = h('', '');
-  ov.id = 'gacha';
-  ov.style.setProperty('--gc', info.color);
-  ov.innerHTML = `<div id="gtitle" style="font-size:20px;color:${info.color}">${info.name}${n > 1 ? ' × ' + n : ''}</div><div class="gchest">${info.icon}</div><div class="cards" id="gcards"></div><div id="gfoot" style="font-size:13px;text-align:center"></div><div class="row"><button id="gskip">Pular</button><button id="gclose" class="primary" style="display:none">Continuar</button><button id="gagain" style="display:none"></button></div>`;
-  root.appendChild(ov);
-  const cardsEl = q('#gcards', ov), foot = q('#gfoot', ov);
-  const cardHtml = (g: { it: Item; sold: number }) => {
-    const it = g.it;
-    return `<span class="ic">${it.icon}</span><b style="color:${RARITY_COLORS[it.rarity]}">${it.name}</b><br><span style="color:#a79cc4">${RARITY_NAMES[it.rarity]} · ${SLOT_NAMES[it.slot]}</span><br><small>${describeItem(it).replace(/<br>/g, '<br>')}</small>${g.sold ? `<br><small style="color:#f1c40f">Mochila cheia: vendido por 🪙 ${g.sold}</small>` : ''}`;
-  };
-  // fase 1: carta "rolando" com cores de raridade
-  const spin = h('<span class="ic">❔</span><b>…</b>', 'card spin');
-  cardsEl.appendChild(spin);
-  const icons = ['🗡️', '🛡️', '🪄', '🏹', '🎩', '💍', '🥾', '📕'];
-  let alive = true;
-  const finish = () => {
-    if (!alive) return; alive = false;
-    clearInterval(tick); spin.remove();
-    q('.gchest', ov).classList.add('pop');
-    got.forEach((g, i) => setTimeout(() => {
-      if (!ov.isConnected) return;
-      const c = h(cardHtml(g), `card r${g.it.rarity}`);
-      c.style.setProperty('--rc', RARITY_COLORS[g.it.rarity]);
-      c.style.animationDelay = '0s';
-      cardsEl.appendChild(c);
-      if (i === got.length - 1) {
-        foot.innerHTML = `+🪙 ${fmtGold(gold)}${pots ? ` · +${pots} Poção de Cura` : ''}<br><span style="color:#a79cc4">Garantia: ${RARITY_NAMES[info.pityMin]}+ em ${Math.max(1, info.pityEvery - (pity[tier] ?? 0))} abertura(s)</span>`;
-        q('#gclose', ov).style.display = ''; q('#gskip', ov).style.display = 'none';
-        const more = ch[tier];
-        if (more > 0) { const a = q('#gagain', ov); a.style.display = ''; a.textContent = `Abrir outro (${more})`; a.onclick = () => { ov.remove(); openGacha(tier, 1); }; }
-      }
-    }, 200 + (got.length > 6 ? 90 : 380) * i));
-  };
-  const tick = setInterval(() => {
-    const r = Math.floor(Math.random() * 5);
-    spin.style.setProperty('--rc', RARITY_COLORS[Math.min(r, best >= 3 ? 4 : 3)]);
-    spin.innerHTML = `<span class="ic">${icons[Math.floor(Math.random() * icons.length)]}</span><b style="color:${RARITY_COLORS[r]}">${RARITY_NAMES[r]}</b>`;
-  }, 75);
-  setTimeout(finish, 1500);
-  q('#gskip', ov).onclick = finish;
-  q('#gclose', ov).onclick = () => { ov.remove(); bus.emit('recalc'); renderChests(); curWin = 'chests'; };
-  ov.addEventListener('click', (e) => e.stopPropagation());
-  bus.emit('chest');
 }
 
 // ======================== ENCANTAMENTO ========================

@@ -1,9 +1,5 @@
 # Reinos de Aldoria — MMORPG de navegador baseado em D&D
 
-*MMO RPG by Jeff e Kauã*
-
-**Jogar:** https://jeffersonrmoraes.github.io/aldoria/ (GitHub Pages, pasta `docs/`; para atualizar rode `npm run build` e copie `dist/index.html` para `docs/index.html`).
-
 Mundo 2.5D low-poly em estilo "MMO clássico" (câmera inclinada, personagens 3D animados), combate em tempo real, regras do D&D 5e (SRD 5.1, licença CC-BY-4.0).
 Stack: **Three.js + TypeScript + Vite**. Personagens e esqueletos: modelos 3D animados do [KayKit](https://www.kaylousberg.com) (**CC0**), reduzidos para ~130 KB cada; terreno, árvores, casas, rato, lobo e gosma são gerados por código. O jogo inteiro é um único HTML de ~2,2 MB (~850 KB gzip). Veja `CREDITS.md`.
 
@@ -123,5 +119,5 @@ Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WE
 - **Conjuradores** (Bardo, Bruxo, Druida, Feiticeiro, Mago): cajados (2 mãos) + **varinhas e livros** (1 mão): Varinha de Carvalho/Cristal/Rúnica/do Arquimago, Livro de Feitiços, Grimório de Guerra, Tomo Arcano, Livro do Arquimago. Vendidos pelo Sábio.
 - `isTwoHanded()` reconhece arco, besta (exceto "Besta de Pulso"), cajado, bordão, Montante e Machado Grande.
 
-## Grande atualização: classes, árvores, conjuntos, encantos, baús e mundo maior
-Veja a seção correspondente em `CLAUDE.md`. Resumo: 16 classes (novas: Necromante, Cavaleiro Arcano, Dançarino das Lâminas, Ilusionista); árvores de habilidades e atributos (K); conjuntos de armadura com bônus 2/3/4 peças; encantamento de armas; baús gacha (B) com 1% de drop (chefes 100%); economia com lojas especialistas e saturação; projéteis/golpes distintos por classe; mapa 400×300, vila maior com 5 novas lojas de classe.
+## Grande atualização: classes, árvores, conjuntos, encantos e mundo maior
+Veja a seção correspondente em `CLAUDE.md`. Resumo: 16 classes (novas: Necromante, Cavaleiro Arcano, Dançarino das Lâminas, Ilusionista); árvores de habilidades e atributos (K); conjuntos de armadura com bônus 2/3/4 peças; encantamento de armas; economia com lojas especialistas e saturação; projéteis/golpes distintos por classe; mapa 400×300, vila maior com 5 novas lojas de classe.
