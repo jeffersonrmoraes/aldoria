@@ -112,7 +112,7 @@ Habilidades de alvo (bolt/strike) à distância: o personagem para instantaneame
 Seis espaços: **Elmo, Corpo, Pernas, Mão Direita, Mão Esquerda, Acessório**. Mão Esquerda aceita escudo (+2 CA), arma leve (ataque extra) ou foco de conjuração conforme a classe; armas de duas mãos bloqueiam a mão esquerda. Saves antigos migram automaticamente (arma→Mão Direita, armadura→Corpo, berloque→Acessório).
 
 ## Menu, espaços de personagem e lojas especializadas
-- **Esc** → Menu → "Salvar e voltar ao menu principal". Tela inicial com **8 espaços de personagem** (jogar, criar, excluir).
+- **Esc** → Menu → "Salvar e voltar ao menu principal". Tela inicial com **3 espaços de personagem** (jogar, criar, excluir).
 - Lojas por ofício: Ferreiro, Sábio, Arqueira, Monge, Ladino e Empório (ver CLAUDE.md). Três novos prédios na cidade: Arco do Falcão (leste), Mosteiro do Punho Sereno (sul) e Adaga Silenciosa (sul-oeste).
 
 ## Armas por classe (uma mão e duas mãos)

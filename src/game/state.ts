@@ -158,7 +158,7 @@ export function newPlayer(name: string, raceId: string, classId: string, tone: s
 }
 
 /** Vários personagens: cada slot é um save independente. */
-export const SLOTS = 8;
+export const SLOTS = 3;
 const LEGACY_KEY = 'aldoria-save-v1';
 const slotKey = (n: number) => `aldoria-save-slot-${n}`;
 let activeSlot = 0;
