@@ -56,7 +56,7 @@ function buildPart(d: PartDef, tint?: string): THREE.Object3D {
     }
     case 'tusks': {
       const mat = pm(ivory);
-      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.025 * sc, 0.1 * sc, 5), mat, sx * 0.1, -0.2, 0.33, -0.2, 0, sx * 0.1);
+      for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.025 * sc, 0.1 * sc, 5), mat, sx * 0.1, -0.12, 0.33, -0.2, 0, sx * 0.1);
       break;
     }
     case 'fangs': {
@@ -177,7 +177,7 @@ export class SkinnedActor implements Visual {
       part.position.set(o[0] * k, o[1] * k + (d.k === 'eyes' && this.spec.model === 'Barbarian' ? -0.04 * k : 0), o[2] * k);
       // o rosto do Bárbaro é mais achatado: recua olhos/presas/nariz para encostar na face
       if (this.spec.model === 'Barbarian' && ['eyes', 'tusks', 'fangs', 'nose'].includes(d.k)) part.position.z -= (d.k === 'eyes' ? 0.1 - 0.1 * (Math.min(this.spec.scale ?? 1, 2.6) - 1) : 0.1 - 0.045 * (Math.min(this.spec.scale ?? 1, 2.6) - 1)) * k; // monstros grandes têm barba mais saliente
-      else if (this.spec.model === 'Mage' && d.k === 'tusks') { part.position.z -= 0.02 * k; part.position.y += 0.12 * k; part.scale.multiplyScalar(1.3); }
+      else if (this.spec.model === 'Mage' && d.k === 'tusks') { part.position.z -= 0.02 * k; part.position.y += 0.08 * k; part.scale.multiplyScalar(1.3); }
       wrap.add(part);
       bone.add(wrap);
       part.traverse((m) => { const mesh = m as THREE.Mesh; if (mesh.isMesh) mesh.castShadow = false; });
