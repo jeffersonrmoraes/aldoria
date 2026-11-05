@@ -1,5 +1,5 @@
 import { Client, Room } from '@colyseus/core';
-import { ChatMsg, JoinOptions, PlayerInfo, PosMsg, PROTOCOL, ReadyMsg, SheetMsg, SnapMsg } from './protocol.js';
+import { ChatMsg, JoinOptions, PlayerInfo, PosMsg, PROTOCOL, ReadyMsg, SheetMsg, SnapMsg, WarnMsg } from './protocol.js';
 import { WorldSim, SimPlayer } from './sim.js';
 import { sanitizeSheet } from './sheet.js';
 import { derive } from '../../src/game/state';
@@ -8,7 +8,7 @@ import { readToken } from './auth.js';
 interface Peer extends PlayerInfo, SimPlayer {
   x: number; y: number; f: number; mv: number; loc: string;
   lastPos: number; lastChat: number; chatBurst: number;
-  msgs: number; msgAt: number; lastSheet: number;
+  msgs: number; msgAt: number; lastSheet: number; lastWarn: string;
   acc: string; user: string;
 }
 
@@ -53,8 +53,11 @@ export class WorldRoom extends Room {
       const now = Date.now();
       if (now - p.lastSheet < 800) return;
       p.lastSheet = now;
-      const sheet = sanitizeSheet(m);
+      const rejected: string[] = [];
+      const sheet = sanitizeSheet(m, rejected);
       if (!sheet) return;
+      const key = rejected.join('|');
+      if (key !== p.lastWarn) { p.lastWarn = key; if (rejected.length) client.send('warn', { items: rejected.slice(0, 6) } satisfies WarnMsg); }
       p.sheet = sheet; p.d = derive(sheet);
       p.level = sheet.level;
     });
@@ -143,7 +146,7 @@ export class WorldRoom extends Room {
       raceId: clean(o.raceId, 20), classId: clean(o.classId, 20), tone: clean(o.tone, 12),
       level: num(o.level, 1, 99, 1),
       x: 0, y: 0, f: 0, mv: 0, loc: 'world',
-      lastPos: 0, lastChat: 0, chatBurst: 0, msgs: 0, msgAt: 0, lastSheet: 0, acc: who.id, user: who.username,
+      lastPos: 0, lastChat: 0, chatBurst: 0, msgs: 0, msgAt: 0, lastSheet: 0, lastWarn: "", acc: who.id, user: who.username,
       dead: false, sheet: null, d: null, buffs: [], cds: {}, lastAtk: 0, lastMn: 0,
       send: (type, msg) => client.send(type, msg),
     };

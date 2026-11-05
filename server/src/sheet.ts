@@ -4,7 +4,7 @@ import { CLASS_BY_ID } from '../../src/data/classes';
 import { RACE_BY_ID } from '../../src/data/races';
 import { ENCHANT_BY_ID } from '../../src/data/enchants';
 import { MAX_LEVEL } from '../../src/data/rules';
-import { Item, Slot } from '../../src/data/items';
+import { Item, Slot, itemProblem } from '../../src/data/items';
 import { PlayerState, equipBlock } from '../../src/game/state';
 import type { SheetMsg } from './protocol.js';
 
@@ -47,7 +47,7 @@ const flags = (v: unknown) => {
 };
 
 /** Converte a ficha declarada em um PlayerState seguro; null se for inválida. */
-export function sanitizeSheet(m: SheetMsg): PlayerState | null {
+export function sanitizeSheet(m: SheetMsg, rejected?: string[]): PlayerState | null {
   if (!isObj(m) || !CLASS_BY_ID[String(m.classId)] || !RACE_BY_ID[String(m.raceId)]) return null;
   const p: PlayerState = {
     v: 3, name: '', raceId: String(m.raceId), classId: String(m.classId), tone: '',
@@ -58,7 +58,10 @@ export function sanitizeSheet(m: SheetMsg): PlayerState | null {
   const eq = isObj(m.equipped) ? m.equipped : {};
   for (const sl of SLOTS) {
     const it = cleanItem(sl, eq[sl]);
-    if (it && !equipBlock(p, it)) p.equipped[sl] = it;      // item que a classe/nível não pode usar é ignorado
+    if (!it) continue;
+    const bad = itemProblem(it);
+    if (bad) { rejected?.push(`${it.name}: ${bad}`); continue; }
+    if (!equipBlock(p, it)) p.equipped[sl] = it;      // item que a classe/nível não pode usar é ignorado
   }
   return p;
 }

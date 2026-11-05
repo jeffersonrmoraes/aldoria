@@ -1,5 +1,5 @@
 // Protocolo cliente <-> servidor (v3). Espelho de server/src/protocol.ts — mantenha os dois iguais.
-export const PROTOCOL = 3;
+export const PROTOCOL = 4;
 
 /** Dados públicos de um jogador (aparência e identificação). */
 export interface PlayerInfo {
@@ -42,6 +42,8 @@ export interface MnMsg { m: number }
 
 /** 'ready': servidor -> cliente, o mundo aberto é simulado no servidor (n = pontos de spawn, h = assinatura do mundo). */
 export interface ReadyMsg { n: number; h: string }
+/** fase 3b: o servidor recusou itens da ficha declarada (inválidos para o gerador do jogo) */
+export interface WarnMsg { items: string[] }
 /** 'mobs': servidor -> cliente, lista plana [idx, x, y, hp, flags, face] por monstro próximo. flags: 1 morto, 2 perseguindo, 4 andando. */
 export type MobsMsg = number[];
 /** 'hit': resultado de um golpe num monstro. k: h acerto, m erro, p proc/dot, d dreno. */

@@ -4,6 +4,7 @@ Node + Colyseus (WebSocket).
 - **Fase 1:** presença (ver outros jogadores), movimento e chat por mapa.
 - **Fase 2:** os **monstros do mundo aberto** (`'world'`) vivem no servidor: IA, vida, morte e respawn são compartilhados por todos os jogadores. O servidor também **calcula o dano e o XP** (ataques, habilidades, encantos, mortes) com as mesmas regras do cliente (`src/game/combat.ts`, `src/data/*`, empacotadas no servidor com esbuild).
 - **Fase 3a:** **contas** (cadastro/login com senha em scrypt + token assinado) e **saves na nuvem** (3 espaços por conta, sincronizados com o navegador). Uma sessão por conta. Para jogar online é preciso estar logado.
+- **Fase 3b:** o servidor confere os itens equipados da ficha contra as regras do gerador (`itemProblem`); itens forjados são ignorados e o jogador recebe um aviso. Nível, ouro e inventário ainda são declarados pelo cliente.
 - Continuam locais: **chefes** (Gnarlmaw e masmorras), vida/energia/inventário/saves do jogador e o sorteio de itens. As próximas fases: contas e personagem guardado no servidor.
 
 ### Honestidade sobre anti-trapaça

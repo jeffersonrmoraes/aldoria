@@ -568,3 +568,74 @@ export function genShopStock(level: number, shop: ShopId): Item[] {
   }
   return out;
 }
+
+/**
+ * Confere se um item está dentro do que o gerador (`genItem`) consegue produzir: mesma base, dados, velocidade,
+ * CA, bônus e encanto. Usado pelo servidor online para não aceitar itens inventados na ficha do jogador.
+ * Retorna o motivo da recusa, ou null se o item é plausível.
+ */
+export function itemProblem(it: Item): string | null {
+  const r = it.rarity;
+  if (!Number.isInteger(r) || r < 0 || r > 4) return 'raridade inválida';
+  const longest = <T extends { name: string }>(l: T[]) => l.filter((b) => it.name.startsWith(b.name)).sort((a, b) => b.name.length - a.name.length)[0];
+  const k = 1 + r * 0.4;
+  const statOk = (base: ItemStat | undefined, scale: (key: keyof ItemStat, v: number) => number) => {
+    const st = (it.stat ?? {}) as Record<string, number>;
+    const b = (base ?? {}) as Record<string, number>;
+    for (const key of Object.keys(st)) {
+      if (!(key in b)) return false;
+      if (!(st[key] <= scale(key as keyof ItemStat, b[key]) + 0.011)) return false;
+    }
+    return true;
+  };
+  if (it.slot === 'mainhand') {
+    const b = longest(Object.values(WEAPONS).flat());
+    if (!b) return 'arma desconhecida';
+    if (!it.dice || it.dice[0] !== b.dice[0] || it.dice[1] !== b.dice[1]) return 'dados de dano alterados';
+    if (it.speed !== b.speed) return 'velocidade alterada';
+    if ((it.plus ?? 0) > r || (it.plus ?? 0) < 0) return 'bônus acima do permitido';
+    if (it.minLevel !== b.min) return 'nível mínimo alterado';
+    if (it.stat && Object.keys(it.stat).length) return 'bônus extras em arma';
+  } else if (it.slot === 'body') {
+    const b = longest(ARMORS);
+    if (!b) return 'armadura desconhecida';
+    if (it.armorType !== b.type || it.dexCap !== b.dexCap) return 'tipo de armadura alterado';
+    if (!((it.ac ?? 0) <= b.ac + r)) return 'CA acima do permitido';
+    if (it.minLevel !== b.min) return 'nível mínimo alterado';
+  } else if (it.slot === 'head' || it.slot === 'legs') {
+    const b = longest(it.slot === 'head' ? HEADS : LEGS);
+    if (!b) return 'peça desconhecida';
+    if (it.armorType !== b.type) return 'tipo de armadura alterado';
+    if (!((it.ac ?? 0) <= b.ac + (r >= 3 ? 1 : 0) + (r >= 4 ? 1 : 0))) return 'CA acima do permitido';
+    if (!statOk(b.stat, (key, v) => (key === 'speed' ? +(v * k).toFixed(2) : Math.round(v * k)))) return 'bônus acima do permitido';
+    if (it.minLevel !== b.min) return 'nível mínimo alterado';
+  } else if (it.slot === 'offhand') {
+    if (it.offKind === 'shield') {
+      const b = longest(SHIELDS);
+      if (!b) return 'escudo desconhecido';
+      if (!((it.ac ?? 0) <= 2 + [0, 0, 1, 1, 2][r])) return 'CA acima do permitido';
+      if (!statOk(b.stat, (_k, v) => Math.round(v * k))) return 'bônus acima do permitido';
+      if (it.minLevel !== b.min) return 'nível mínimo alterado';
+    } else if (it.offKind === 'weapon') {
+      const b = longest(OFFWEAPONS);
+      if (!b) return 'arma leve desconhecida';
+      if (!it.dice || it.dice[0] !== b.dice[0] || it.dice[1] !== b.dice[1]) return 'dados de dano alterados';
+      if ((it.plus ?? 0) > r) return 'bônus acima do permitido';
+      if (it.minLevel !== b.min) return 'nível mínimo alterado';
+    } else if (it.offKind === 'focus') {
+      const b = longest(FOCI);
+      if (!b) return 'foco desconhecido';
+      if (!statOk(b.stat, (key, v) => (key === 'dmg' ? v + Math.floor(r / 2) : Math.round(v * k)))) return 'bônus acima do permitido';
+      if (it.minLevel !== b.min) return 'nível mínimo alterado';
+    } else return 'tipo de mão esquerda inválido';
+  } else if (it.slot === 'accessory') {
+    const b = longest(TRINKETS);
+    if (!b) return 'acessório desconhecido';
+    const keys = Object.keys(it.stat ?? {});
+    if (keys.length !== 1 || keys[0] !== b.stat) return 'bônus do acessório alterado';
+    if (!(((it.stat as Record<string, number>)[b.stat]) <= b.per * Math.max(1, r) + 0.011)) return 'bônus acima do permitido';
+    if (it.minLevel !== b.min) return 'nível mínimo alterado';
+  } else return 'espaço inválido';
+  if (it.ench && it.slot !== 'mainhand') return 'encanto fora da arma';
+  return null;
+}

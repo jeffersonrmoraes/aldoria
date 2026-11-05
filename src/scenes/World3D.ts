@@ -476,6 +476,7 @@ export class World3D {
         bus.emit('net', s, d); if (d && s !== lastSt) bus.emit('log', d, s === 'error' ? '#ffb3a0' : '#9fe3ff'); lastSt = s;
         if (s !== 'on') this.srvReady = false;     // caiu a conexão: os monstros voltam a ser simulados localmente
       },
+      warn: (m) => bus.emit('log', `O servidor ignorou itens que o jogo não gera (não valem online): ${m.items.join('; ')}`, '#ffb3a0'),
       ready: (m) => {
         const ok = m.h === worldSig(this.world.spawns);
         if (ok && !this.srvReady) bus.emit('log', 'Monstros do mundo agora são compartilhados com os outros jogadores.', '#9fe3ff');

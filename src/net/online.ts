@@ -1,6 +1,6 @@
 // Cliente de rede (Colyseus): presença, movimento e chat. Falhas nunca derrubam o jogo: ele segue offline.
 import { Client, Room } from 'colyseus.js';
-import { ChatMsg, HitMsg, HurtMsg, JoinOptions, KillMsg, MAtkMsg, MobsMsg, PlayerInfo, PosMsg, PROTOCOL, ReadyMsg, SheetMsg, SnapMsg } from './protocol';
+import { ChatMsg, HitMsg, HurtMsg, JoinOptions, KillMsg, MAtkMsg, MobsMsg, PlayerInfo, PosMsg, PROTOCOL, ReadyMsg, SheetMsg, SnapMsg, WarnMsg } from './protocol';
 import { serverUrl } from './config';
 
 export type RemoteInfo = PlayerInfo & { x?: number; y?: number };
@@ -15,6 +15,7 @@ export interface NetHandlers {
   chat(m: ChatMsg): void;
   /** fase 2: monstros do mundo aberto simulados no servidor */
   ready(m: ReadyMsg): void;
+  warn(m: WarnMsg): void;
   mobs(a: MobsMsg): void;
   hit(m: HitMsg): void;
   matk(m: MAtkMsg): void;
@@ -55,6 +56,7 @@ export class NetClient {
       room.onMessage('chat', (m: ChatMsg) => this.h.chat(m));
       room.onMessage('kicked', (m: { why: string }) => { this.closed = true; this.set('error', m.why); });
       room.onMessage('ready', (m: ReadyMsg) => this.h.ready(m));
+      room.onMessage('warn', (m: WarnMsg) => this.h.warn(m));
       room.onMessage('mobs', (a: MobsMsg) => this.h.mobs(a));
       room.onMessage('hit', (m: HitMsg) => this.h.hit(m));
       room.onMessage('matk', (m: MAtkMsg) => this.h.matk(m));

@@ -12,7 +12,7 @@ let total = 0, hits = 0;
 for (const classId of classes) {
   const c = new Client(url);
   let room;
-  try { room = await c.joinOrCreate('world', { v: 3, tok: await tok(), name: classId, raceId: 'human', classId, tone: 'a', level: 10 }); } catch (e) { console.log(classId, 'falhou ao entrar:', e.message); continue; }
+  try { room = await c.joinOrCreate('world', { v: 4, tok: await tok(), name: classId, raceId: 'human', classId, tone: 'a', level: 10 }); } catch (e) { console.log(classId, 'falhou ao entrar:', e.message); continue; }
   let mobs = [];
   for (const t of ['welcome','roster','online','snap','join','leave','matk','ready','kill','hurt']) room.onMessage(t, () => {});
   room.onMessage('mobs', (a) => { mobs = a; });
