@@ -25,6 +25,9 @@ import { CLASS_FX, ProjKind, Vfx } from './vfx';
 import { enchProc } from '../data/enchants';
 import { skillMod } from '../data/progression';
 import { dumpValue } from '../data/economy';
+import { NetClient } from '../net/online';
+import { RemotePlayers } from '../net/remotes';
+import { onlineWanted } from '../net/config';
 
 interface Mob {
   def: MobDef;
@@ -133,6 +136,8 @@ export class World3D {
   private last = 0;
   private ray = new THREE.Raycaster();
   private cleanup: (() => void)[] = [];
+  private net: NetClient | null = null;
+  private remotes: RemotePlayers | null = null;
   private fogCol = new THREE.Color('#cfe8ff');
   private skyCol = new THREE.Color('#9fd5ff');
   private hemiI = 1;
@@ -167,6 +172,7 @@ export class World3D {
     this.vfx = new Vfx({ root: this.fxRoot, get list() { return self.fx; } });
     this.build();
     this.bind();
+    this.initNet();
     this.resize();
     this.last = performance.now();
     this.raf = requestAnimationFrame((t) => this.frame(t));
@@ -275,6 +281,7 @@ export class World3D {
       for (const n of old.npcs) { this.scene.remove(n.v.root); n.label.style.display = 'none'; }
       for (const p of old.portals) { this.scene.remove(p.group); p.label.style.display = 'none'; }
     }
+    this.remotes?.clear();
     this.loc = loc;
     this.terrain = { group: loc.group, houses: loc.houses, groundY: loc.groundY, solid: loc.solid };
     this.mobs = loc.mobs; this.npcs = loc.npcs; this.mapW = loc.w; this.mapH = loc.h;
@@ -422,6 +429,7 @@ export class World3D {
       this.keys.add(k);
       if (e.repeat) return;
       if (k >= '1' && k <= '4') this.useSkill(Number(k) - 1);
+      else if (k === 'enter') this.openChat();
       else if (k === 'h') this.usePotion('heal');
       else if (k === 'j') this.usePotion('energy');
       else if (k === 'e') { const n = this.nearNpc(); if (n) bus.emit('npc', n.id); else { const pt = this.nearPortal(); if (pt) this.usePortal(pt); } }
@@ -441,11 +449,49 @@ export class World3D {
     for (const [e, f] of handlers) { bus.removeAllListeners(e === 'levelup' ? '__none' : e); bus.on(e, f); this.cleanup.push(() => bus.off(e, f)); }
   }
 
+  // ---------- online (fase 1: presença e chat) ----------
+  private initNet() {
+    this.remotes = new RemotePlayers(this.scene, this.labels);
+    const chat = document.getElementById('chat') as HTMLInputElement | null;
+    if (chat) {
+      chat.onkeydown = (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { const t = chat.value.trim(); if (t) this.net?.chat(t); chat.value = ''; chat.classList.add('hidden'); chat.blur(); }
+        else if (e.key === 'Escape') { chat.value = ''; chat.classList.add('hidden'); chat.blur(); }
+      };
+      chat.onkeyup = (e) => e.stopPropagation();
+    }
+    if (!onlineWanted()) { bus.emit('net', 'off'); return; }
+    let lastSt = '';
+    this.net = new NetClient({
+      status: (s, d) => { bus.emit('net', s, d); if (d && s !== lastSt) bus.emit('log', d, s === 'error' ? '#ffb3a0' : '#9fe3ff'); lastSt = s; },
+      roster: (l) => this.remotes?.setRoster(l),
+      join: (p) => this.remotes?.add(p),
+      leave: (id) => this.remotes?.remove(id),
+      snap: (s) => this.remotes?.snap(s),
+      chat: (m) => {
+        if (m.ch === 'sistema') { bus.emit('log', m.t, '#ffb3a0'); return; }
+        bus.emit('log', `${m.name}: ${m.t}`, m.id === this.net?.selfId ? '#fff3c4' : '#cfe9ff');
+        if (m.id !== this.net?.selfId) this.remotes?.say(m.id, m.t);
+      },
+    });
+    void this.net.connect({ name: player.name, raceId: player.raceId, classId: player.classId, tone: player.tone, level: player.level });
+  }
+
+  private openChat() {
+    if (this.net?.status !== 'on') return;
+    const chat = document.getElementById('chat') as HTMLInputElement | null;
+    if (!chat) return;
+    this.keys.clear();
+    chat.classList.remove('hidden'); chat.focus();
+  }
+
   /** Teste/depuração: move o jogador para uma posição em tiles. */
   teleport(tx: number, ty: number) { this.p.x = tx * TILE + 8; this.p.y = ty * TILE + 8; this.camPos.set(tx, 0, ty); }
 
   destroy() {
     cancelAnimationFrame(this.raf);
+    this.net?.disconnect(); this.remotes?.dispose();
     this.cleanup.forEach((f) => f());
     this.renderer.dispose();
     this.parent.innerHTML = '';
@@ -643,6 +689,8 @@ export class World3D {
     pr.position.copy(this.P(this.p.x, this.p.y));
     this.turn(pr, this.p.face, dt);
     this.pv.update(dt, now);
+    this.remotes?.update(dt, now, (x, y, h) => this.P(x, y, h), (el, v) => this.place(el, v));
+    this.net?.tick(now, this.p.x, this.p.y, this.p.face, this.pv.isMoving, this.loc.id);
     for (const n of this.npcs) {
       const near = this.distTo(n) < 90;
       if (n.path && !(near && this.distTo(n) < 40)) {

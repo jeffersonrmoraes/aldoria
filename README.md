@@ -51,7 +51,7 @@ tools/        build_art.py: regenera o atlas de ícones a partir dos packs do Ke
 ## Roadmap
 
 1. **Capítulo 1 polido** — *feito:* sons procedurais, armas/escudos visíveis conforme o equipamento, balanceamento por classe (`tools/balance.ts`), 9 monstros novos e elites. *Falta:* música com mais variedade, mais partículas/animações, missões e masmorras extras, ajuste fino de chefes
-2. **Multiplayer** (servidor Node + Colyseus): contas, personagens no servidor, mundo compartilhado, chat, grupos, loot por jogador
+2. **Multiplayer** (servidor Node + Colyseus): ✅ fase 1 pronta (ver outros jogadores + chat, `server/`); próximas: contas, personagens no servidor, monstros/combate sincronizados, grupos, loot por jogador
 3. **Capítulo 2**: níveis 11–15, novo mapa, novas subclasses, masmorra em grupo
 4. **Sistemas**: pontos de atributo manuais, subclasses, profissões, mercado entre jogadores, guildas
 

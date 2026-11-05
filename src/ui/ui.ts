@@ -18,6 +18,7 @@ import { ENCHANTS, ROMAN, enchantCost, enchLine } from '../data/enchants';
 import { SET_BY_ID, activeSets, setTipHtml } from '../data/sets';
 import { buyPrice, buysItem, dumpValue, fmtGold, potionPrice, registerSale, sellOffer } from '../data/economy';
 import { bonusLines } from '../data/rules';
+import { onlineWanted, setOnlineWanted } from '../net/config';
 
 const root = document.getElementById('ui')!;
 
@@ -67,9 +68,11 @@ export function showMenu(start: () => void) {
       <h2>Capítulo ${CURRENT_CHAPTER.id} — ${CURRENT_CHAPTER.title}</h2>
       <div class="hero-h">Escolha seu herói</div>
       <div class="slots">${cards}</div>
+      <label class="onl" title="Conecta ao servidor para ver outros jogadores e conversar (Enter). Se o servidor estiver fora do ar, o jogo segue offline."><input type="checkbox" id="onl"> 🌐 Jogar online <small>(ver outros heróis e conversar)</small></label>
       <p class="tcredits">Baseado no SRD 5.1 de D&amp;D (CC-BY-4.0) · Modelos 3D: KayKit (CC0) · Ícones: Kenney.nl (CC0)</p>
     </div>`, 'tscreen');
   root.appendChild(m);
+  const onl = q<HTMLInputElement>('#onl', m); onl.checked = onlineWanted(); onl.onchange = () => setOnlineWanted(onl.checked);
   saves.forEach((p, n) => { if (p) q<HTMLCanvasElement>(`[data-pc="${n}"]`, m).getContext('2d')!.drawImage(portrait(p.raceId, p.classId, p.tone, 'bust'), 0, 0); });
   qa<HTMLElement>('[data-play]', m).forEach((b) => (b.onclick = () => { const n = Number(b.dataset.play); const p = loadSave(n); if (p) { setSlot(n); setPlayer(p); start(); } }));
   qa<HTMLElement>('[data-new]', m).forEach((b) => (b.onclick = () => showCreate(start, Number(b.dataset.new))));
@@ -146,6 +149,7 @@ export function initHud() {
     </div>
     <div id="hud-tr">
       <div id="zone" class="panel">—</div>
+      <div id="netstat" class="panel hidden" style="padding:3px 10px;font-size:12px"></div>
       <div class="panel" style="padding:4px 10px;font-size:13px">🪙 <b id="gold" style="color:var(--gold)"></b></div>
       <div class="btns hit"><button id="bi">Inventário (I)</button><button id="bc">Personagem (C)</button><button id="bk">Habilidades (K)</button><button id="bm">Mapa (M)</button><button id="bp">Menu (Esc)</button><button id="bj">Diário (L)</button><button id="bh">Ajuda (F1)</button></div>
       <div id="quests" class="panel hidden"></div>
@@ -153,6 +157,7 @@ export function initHud() {
     <div id="bossbar" class="panel hidden"><div id="bname"></div><div class="bar" style="height:14px"><i id="bhp" style="background:#c0392b"></i></div><div id="bcast" style="display:none"><div id="bcn"></div><div class="bar" style="height:8px"><i id="bci" style="background:#ffb03a"></i></div></div></div>
     <div id="target" class="panel hidden"><div id="tname"></div><div class="bar"><i id="thp" style="background:var(--hp)"></i></div></div>
     <div id="log"></div>
+    <input id="chat" class="hidden" type="text" maxlength="200" autocomplete="off" placeholder="Digite e pressione Enter (Esc cancela)">
     <div id="prompt" class="panel hidden"></div>
     <div id="pcast" class="hidden" style="position:absolute;left:50%;bottom:92px;transform:translateX(-50%);width:170px;height:7px;background:#000a;border-radius:4px;overflow:hidden"><i id="pci" style="display:block;height:100%;background:#ffd23f"></i></div>
     <div id="skills" class="panel hit"></div>
@@ -192,6 +197,14 @@ export function initHud() {
   bus.on('hud', onHud);
   bus.on('log', onLog);
   bus.on('zone', onZone);
+  bus.removeAllListeners('net');
+  bus.on('net', (st: string, d?: string) => {
+    const el = q('#netstat'); if (!el) return;
+    if (st === 'off') { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    el.textContent = st === 'on' ? '🟢 ' + (d ?? 'Online') : st === 'connecting' ? '🟡 Conectando…' : '🔴 Offline';
+    el.title = st === 'on' ? 'Enter: conversar' : (d ?? '');
+  });
   bus.on('levelup', (lvl: number) => {
     toast(`NÍVEL ${lvl}!`, 2200);
     const c = CLASS_BY_ID[player.classId];

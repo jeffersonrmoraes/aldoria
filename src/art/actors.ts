@@ -226,6 +226,7 @@ export class SkinnedActor implements Visual {
     this.cur = '~' + name;
   }
 
+  get isMoving() { return this.moving; }
   setMoving(moving: boolean, speedFactor = 1) { this.moving = moving; this.speedF = speedFactor; }
   attack(clip?: string) { if (this.deadFlag) return; this.once(clip ?? this.melee, 1.6); }
   hit() { if (this.deadFlag || performance.now() < this.busyUntil) return; this.once('Hit_A', 1.8); }
