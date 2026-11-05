@@ -52,3 +52,9 @@ Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WE
 ## README e GitHub Pages
 - O topo do `README.md` deve **sempre** conter o link do jogo: https://jeffersonrmoraes.github.io/aldoria/ (permanente; nunca remover ao reescrever o README).
 - Publicação: `npm run build` e copiar `dist/index.html` para `docs/index.html`; Pages serve `docs/` da branch `main`.
+
+## Polimento do Capítulo 1
+- **Áudio** (`src/game/audio.ts`): tudo procedural em WebAudio (sem arquivos). `sfx.*` para golpes por classe, flechas, magias, dano, morte, moedas, loot, poções, UI; trilha gerativa por bioma/masmorra/chefe (`setMusicZone`). Volume/mudo no menu Esc (salvo em `aldoria-audio`). O navegador só libera som após um clique/tecla.
+- **Equipamento visível** (`applyEquipment` em `src/art/actors.ts`): arma de uma/duas mãos e escudo seguem o item equipado (onde o modelo CC0 tiver a peça; senão mantém o padrão da classe).
+- **Balanceamento** (`src/data/balance.ts`, `CLASS_POWER`): multiplicador de dano por classe calibrado por `tools/balance.ts` (`npx esbuild tools/balance.ts --bundle --platform=node --outfile=/tmp/balance.cjs && node /tmp/balance.cjs`). Rode de novo ao mexer em classes, itens ou monstros.
+- **Monstros novos** (SRD): Chacal, Bandido (Campos); Worg, Hobgoblin (Floresta); Carniçal, Sombra (Cripta); Xamã Orc, Gnoll (Colinas); Troll (Covil do Ogro). **Elites** (6% dos spawns): vida ×2,4, XP ×3, item garantido de raridade alta, nome dourado (`eliteOf`).

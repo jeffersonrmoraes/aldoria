@@ -69,6 +69,13 @@ export class SkinnedActor implements Visual {
     this.mixer.update(Math.random() * 2);
   }
 
+  /** Mostra apenas as peças seguradas indicadas (se o modelo tiver cada uma). */
+  setHeld(names: string[]) {
+    const want = new Set(names);
+    this.model.traverse((o) => { if (HELD.test(o.name)) o.visible = want.has(o.name); });
+  }
+  has(name: string) { let f = false; this.model.traverse((o) => { if (o.name === name) f = true; }); return f; }
+
   /** Aplica tom de pele (multiplicando a cor da cabeça). */
   setSkin(tone: string) {
     if (!this.head) return;
@@ -281,10 +288,17 @@ function addRacialTraits(a: SkinnedActor, look: (typeof RACE_BY_ID)[string]['loo
 
 // ---------- monstros ----------
 export const MOB_SPEC: Record<string, ModelSpec | 'rat' | 'wolf' | 'slime'> = {
-  rat: 'rat', wolf: 'wolf', slime: 'slime',
+  rat: 'rat', wolf: 'wolf', slime: 'slime', jackal: 'wolf', worg: 'wolf',
   kobold: { model: 'Rogue', scale: 0.62, show: ['Knife'], tint: '#e5835a' },
   goblin: { model: 'Rogue', scale: 0.74, show: ['Knife'], tint: '#a6d878' },
   skeleton: { model: 'Skeleton' },
+  bandit: { model: 'Rogue', scale: 0.95, show: ['Knife'], tint: '#c99a6a', cape: '#5a3a2a' },
+  hobgoblin: { model: 'Knight', scale: 0.9, show: ['1H_Sword', 'Round_Shield'], tint: '#c47a4a' },
+  ghoul: { model: 'Barbarian', scale: 0.95, hide: ['Barbarian_Hat'], tint: '#7a9a8a', melee: 'Unarmed_Melee_Attack_Punch_A' },
+  shadow: { model: 'Skeleton', scale: 1.1, tint: '#6a5a9a' },
+  orcshaman: { model: 'Mage', scale: 1.05, show: ['2H_Staff'], tint: '#7aaa5a', cape: '#5a2a1a', melee: 'Spellcast_Shoot' },
+  gnoll: { model: 'Barbarian', scale: 1.1, show: ['1H_Axe'], tint: '#c9a45a' },
+  troll: { model: 'Barbarian', scale: 1.9, hide: ['Barbarian_Hat'], tint: '#6aa05a', melee: 'Unarmed_Melee_Attack_Punch_A' },
   zombie: { model: 'Barbarian', hide: ['Barbarian_Hat'], tint: '#9fb88a', melee: 'Unarmed_Melee_Attack_Punch_A' },
   orc: { model: 'Barbarian', scale: 1.12, show: ['1H_Axe'], tint: '#93c276' },
   bugbear: { model: 'Barbarian', scale: 1.4, show: ['2H_Axe'], tint: '#cf9a62', melee: '2H_Melee_Attack_Chop' },
@@ -327,3 +341,37 @@ export const NPC_SPEC: Record<string, ModelSpec> = {
   necro: { model: 'Mage', show: ['Spellbook_open'], cape: '#2a8a5a' },
   barbarian: { model: 'Barbarian', hide: ['Barbarian_Hat'], show: ['2H_Axe'], tint: '#d9a37a' },
 };
+
+/** Peças seguradas de acordo com o equipamento (arma e mão esquerda); onde o modelo não tem a peça, mantém o padrão da classe. */
+export function applyEquipment(a: SkinnedActor, classId: string, eq: { mainhand?: { name: string; twoHanded?: boolean }; offhand?: { name: string; offKind?: string } }) {
+  const def = new Set(CLASS_LOOK[classId].show ?? []);
+  const out = new Set<string>(def);
+  const w = eq.mainhand, o = eq.offhand;
+  const pick = (want: string[]) => want.find((n) => a.has(n));
+  const swap = (group: RegExp, name: string | undefined) => { if (!name) return; for (const n of [...out]) if (group.test(n)) out.delete(n); out.add(name); };
+  if (w) {
+    const n = w.name.toLowerCase(), two = !!w.twoHanded;
+    const fists = /manopla|punho|kama|bast[ãa]o de combate/.test(n);
+    let prop: string | undefined;
+    if (a.has('1H_Sword')) prop = fists ? undefined : /machad|martelo|ma[çc]a/.test(n) ? undefined : two ? '2H_Sword' : '1H_Sword';
+    else if (a.has('1H_Axe')) prop = fists ? undefined : /espada|montante|l[âa]mina|rapieira|adaga/.test(n) ? undefined : two ? '2H_Axe' : '1H_Axe';
+    else if (a.has('2H_Staff')) prop = /cajado|bord[ãa]o|cetro|foice|lâmina/.test(n) && two ? '2H_Staff' : /livro|grim[óo]rio|tomo/.test(n) ? 'Spellbook_open' : '1H_Wand';
+    else if (a.has('Knife')) prop = /besta de pulso/.test(n) ? pick(['1H_Crossbow']) : /arco|besta/.test(n) ? pick(['2H_Crossbow']) : 'Knife';
+    if (prop && !fists) swap(/^(1H_|2H_|Knife$|Spellbook_open)/, prop);
+    if (a.has('Knife') && /arco|besta/.test(n)) out.delete('Knife_Offhand');
+  }
+  // mão esquerda: escudo só se estiver equipado
+  const shields = ['Round_Shield', 'Badge_Shield', 'Rectangle_Shield', 'Spike_Shield', 'Barbarian_Round_Shield'];
+  if (a.has('Round_Shield') || a.has('Barbarian_Round_Shield')) {
+    for (const sh of shields) out.delete(sh);
+    if (o?.offKind === 'shield') {
+      const n = o.name.toLowerCase();
+      out.add(a.has('Barbarian_Round_Shield') ? 'Barbarian_Round_Shield' : /espinho|spike/.test(n) ? 'Spike_Shield' : /(sol|aurora|radiante|guardi)/.test(n) ? 'Badge_Shield' : /torre|retangular|placa/.test(n) ? 'Rectangle_Shield' : 'Round_Shield');
+    }
+  }
+  if (a.has('Knife_Offhand') && w && !/arco|besta/.test(w.name.toLowerCase())) { if (o?.offKind === 'weapon') out.add('Knife_Offhand'); else out.delete('Knife_Offhand'); }
+  if (a.has('1H_Sword_Offhand')) { if (o?.offKind === 'weapon') out.add('1H_Sword_Offhand'); else out.delete('1H_Sword_Offhand'); }
+  if (a.has('1H_Axe_Offhand')) { if (o?.offKind === 'weapon') out.add('1H_Axe_Offhand'); else out.delete('1H_Axe_Offhand'); }
+  if (a.has('Spellbook')) { if (o?.offKind === 'focus' && /livro|grim[óo]rio|tomo/.test(o.name.toLowerCase())) out.add('Spellbook'); else if (!def.has('Spellbook')) out.delete('Spellbook'); else if (o && o.offKind !== 'focus') out.delete('Spellbook'); }
+  a.setHeld([...out]);
+}

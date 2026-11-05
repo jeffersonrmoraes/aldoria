@@ -50,11 +50,11 @@ export const ZONES: Record<string, ZoneDef> = {
   v_cripta: { id: 'v_cripta', name: 'Vigília dos Sinos', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'crypt' },
   v_orcs: { id: 'v_orcs', name: 'Forte Cinzaferro', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'orcs' },
   v_ogro: { id: 'v_ogro', name: 'Último Refúgio', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'ogre' },
-  fields: { id: 'fields', name: 'Campos Verdes', levels: 'Nível 1–2', mobs: [['rat', 40], ['kobold', 35], ['slime', 25]], count: 270 },
-  forest: { id: 'forest', name: 'Floresta Sombria', levels: 'Nível 3–4', mobs: [['goblin', 55], ['wolf', 45]], count: 235 },
-  crypt: { id: 'crypt', name: 'Cripta Esquecida', levels: 'Nível 5–6', mobs: [['skeleton', 55], ['zombie', 45]], count: 180 },
-  orcs: { id: 'orcs', name: 'Colinas dos Orcs', levels: 'Nível 7–8', mobs: [['orc', 55], ['bugbear', 45]], count: 180 },
-  ogre: { id: 'ogre', name: 'Covil do Ogro', levels: 'Nível 9–10', mobs: [['ogre', 100]], count: 100 },
+  fields: { id: 'fields', name: 'Campos Verdes', levels: 'Nível 1–2', mobs: [['rat', 28], ['kobold', 25], ['slime', 17], ['jackal', 15], ['bandit', 15]], count: 270 },
+  forest: { id: 'forest', name: 'Floresta Sombria', levels: 'Nível 3–4', mobs: [['goblin', 40], ['wolf', 30], ['worg', 15], ['hobgoblin', 15]], count: 235 },
+  crypt: { id: 'crypt', name: 'Cripta Esquecida', levels: 'Nível 5–6', mobs: [['skeleton', 35], ['zombie', 25], ['ghoul', 20], ['shadow', 20]], count: 180 },
+  orcs: { id: 'orcs', name: 'Colinas dos Orcs', levels: 'Nível 7–8', mobs: [['orc', 35], ['bugbear', 25], ['orcshaman', 15], ['gnoll', 25]], count: 180 },
+  ogre: { id: 'ogre', name: 'Covil do Ogro', levels: 'Nível 9–10', mobs: [['ogre', 60], ['troll', 40]], count: 100 },
 };
 
 export function zoneAt(tx: number, ty: number): string {

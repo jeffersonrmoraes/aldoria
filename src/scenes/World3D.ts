@@ -5,20 +5,21 @@ import { TOWN_R, FOUNTAIN } from '../chapters/mapdims';
 import { DUNGEON_BY_ID, DungeonDef, FRAGMENT_BY_ID, MAIN_QUESTS } from '../chapters/story1';
 import { generateDungeon } from '../chapters/dungeon';
 import { BUILDINGS, BuildingDef, VILLAGES, doorTile, FACE_VEC } from '../chapters/town';
+import { sfx, setMusicZone, startMusic } from '../game/audio';
 import { reveal, setMapSource } from '../game/mapdata';
 import { bench, buildBuilding, buildTownWall, flowerBed, lampPost } from './buildings';
 import { buildInterior } from './interiors';
 import { buildDungeon, buildPortal } from './dungeonView';
 import { CLASS_BY_ID } from '../data/classes';
 import { RACE_BY_ID } from '../data/races';
-import { MOBS, MobDef } from '../data/monsters';
+import { MOBS, MobDef, eliteOf } from '../data/monsters';
 import { BOSSES, BossAbility } from '../game/bosses';
 import { Buff, SkillDef, d20, rand, roll } from '../data/rules';
 import { allowedOff, genItem, randGold, rollRarity, RARITY_COLORS, Slot } from '../data/items';
 import { bus } from '../game/bus';
 import { addItem, derive, Derived, gainXp, player, save, xpForCurrent, xpForNext } from '../game/state';
 import { CHAR_H } from '../art/models';
-import { MOB_SPEC, NPC_SPEC, SkinnedActor, Visual, mobVisual, playerActor } from '../art/actors';
+import { MOB_SPEC, NPC_SPEC, SkinnedActor, Visual, applyEquipment, mobVisual, playerActor } from '../art/actors';
 import { House, Terrain, buildTerrain } from './terrain';
 import { CLASS_FX, ProjKind, Vfx } from './vfx';
 import { enchProc } from '../data/enchants';
@@ -135,6 +136,7 @@ export class World3D {
   private hemiI = 1;
 
   constructor(private parent: HTMLElement) {
+    startMusic();
     this.box = parent;
     parent.innerHTML = '';
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -184,6 +186,7 @@ export class World3D {
     reveal(this.p.x / TILE, this.p.y / TILE, 14);
     this.pv = playerActor(player.raceId, player.classId, player.tone);
     this.scene.add(this.pv.root);
+    applyEquipment(this.pv as SkinnedActor, player.classId, player.equipped);
     this.pLabel = this.mkLabel(`${player.name}`, '#fff3c4');
 
     for (const n of this.world.npcs) {
@@ -194,7 +197,8 @@ export class World3D {
     }
 
     for (const sp of this.world.spawns) {
-      const def = MOBS.find((m) => m.id === sp.mob)!;
+      const base = MOBS.find((m) => m.id === sp.mob)!;
+      const def = !sp.boss && !base.boss && Math.random() < 0.06 ? eliteOf(base) : base;
       const v = mobVisual(def.id, def.scale);
       v.root.position.set(sp.x / TILE, this.terrain.groundY(sp.x, sp.y), sp.y / TILE);
       v.root.rotation.y = Math.random() * 6.28;
@@ -280,6 +284,8 @@ export class World3D {
     (this.scene.fog as THREE.Fog).far = loc.dungeon ? 42 : 70;
     this.target = null; this.chase = false; this.goal = null; if (this.marker) this.marker.visible = false;
     this.zoneId = ''; this.zoneChk = 0;
+    setMusicZone('fields', { dungeon: !!loc.dungeon, interior: !!loc.interior });
+    if (old && old !== loc) sfx.door();
     if (loc.interior) { const e = loc.interior.env; this.skyCol.set(e[0]); this.fogCol.set(e[1]); this.hemiI = e[2]; }
     const th = loc.dungeon?.theme;
     if (th) { this.skyCol.set(th.sky); this.fogCol.set(th.fog); this.hemiI = th.ambient; }
@@ -422,8 +428,8 @@ export class World3D {
       ['skill', (i: number) => this.useSkill(i)],
       ['potion', (k: 'heal' | 'energy') => this.usePotion(k)],
       ['blessing', (_n: string, buff: Buff, ms: number) => { this.buffs.push({ until: this.now + ms, buff }); }],
-      ['recalc', () => { this.d = derive(player); player.hp = Math.min(player.hp, this.d.maxHp); player.en = Math.min(player.en, this.d.maxEn); }],
-      ['levelup', () => { this.ringFx(this.p.x, this.p.y, 0xf1c40f, 3.2); this.ringFx(this.p.x, this.p.y, 0xffffff, 2); }],
+      ['recalc', () => { applyEquipment(this.pv as SkinnedActor, player.classId, player.equipped); this.d = derive(player); player.hp = Math.min(player.hp, this.d.maxHp); player.en = Math.min(player.en, this.d.maxEn); }],
+      ['levelup', () => { sfx.levelUp(); this.ringFx(this.p.x, this.p.y, 0xf1c40f, 3.2); this.ringFx(this.p.x, this.p.y, 0xffffff, 2); }],
     ];
     for (const [e, f] of handlers) { bus.removeAllListeners(e === 'levelup' ? '__none' : e); bus.on(e, f); this.cleanup.push(() => bus.off(e, f)); }
   }
@@ -703,7 +709,7 @@ export class World3D {
     if (now > this.zoneChk) {
       this.zoneChk = now + 400;
       const zn = this.loc.zoneOf(Math.floor(this.p.x / TILE), Math.floor(this.p.y / TILE));
-      if (zn !== this.zoneId) { this.zoneId = zn; bus.emit('zone', this.loc.zones[zn]); }
+      if (zn !== this.zoneId) { this.zoneId = zn; setMusicZone(zn); bus.emit('zone', this.loc.zones[zn]); }
     }
     if (this.loc === this.over && now > this.revealAt) { this.revealAt = now + 400; reveal(this.p.x / TILE, this.p.y / TILE, 12); }
     if (now > this.hudAt) { this.hudAt = now + 100; this.emitHud(now); }
@@ -712,12 +718,13 @@ export class World3D {
 
   private mobLabel(m: Mob, target: Mob | null) {
     const near = !m.dead && m.v.root.visible && Math.hypot(this.p.x - m.x, this.p.y - m.y) < 220;
-    const want = near && (m.hp < m.max || m === target || (!!m.boss && m.state === 'chase'));
+    const want = near && (m.hp < m.max || !!m.def.elite || m === target || (!!m.boss && m.state === 'chase'));
     if (!want) { if (m.label) m.label.style.display = 'none'; return; }
     if (!m.label) {
       const el = document.createElement('div'); el.className = 'lb';
       el.innerHTML = `<div class="nm"></div><div class="hb"><i></i></div>`;
       (el.querySelector('.nm') as HTMLElement).textContent = `${m.def.name} · Nv ${m.def.level}`;
+      if (m.def.elite) (el.querySelector('.nm') as HTMLElement).style.color = '#ffd23f';
       this.labels.appendChild(el); m.label = el; m.bar = el.querySelector('i') as HTMLElement;
     }
     m.bar!.style.width = Math.max(0, (m.hp / m.max) * 100) + '%';
@@ -747,7 +754,7 @@ export class World3D {
       const l = Math.hypot(vx, vy);
       this.move(this.p, (vx / l) * speed, (vy / l) * speed, dt);
       this.p.face = Math.atan2(vx, vy);
-      this.pv.setMoving(true, speed / 70);
+      this.pv.setMoving(true, speed / 70); sfx.step();
     } else this.pv.setMoving(false);
 
     const t = this.target;
@@ -798,18 +805,25 @@ export class World3D {
     this.faceTo(m.x, m.y);
     if (!fromWindup) this.pv.attack(this.attackClip());
     if (d.style === 'melee') {
+      sfx.swing((fx?.slash ?? 'slash') as 'slash');
       this.after(110, () => this.vfx.slash(this.P(this.p.x, this.p.y, 1.0), this.p.face, fx?.slash ?? 'slash', fx?.color ?? cls.atkColor, crit));
       this.after(180, () => { if (m.dead) return; if (hit) this.damage(m, dmg, crit, cls.atkColor); else this.miss(m); });
     } else {
+      this.rangedSfx(fx?.proj);
       this.shoot(m, cls.atkColor, () => { if (hit) this.damage(m, dmg, crit, cls.atkColor); else this.miss(m); });
     }
   }
 
-  private miss(m: Mob) { this.float(this.P(m.x, m.y, m.h + 0.1), 'Errou', '#b8b8c8', 7); }
+  private rangedSfx(k?: string) {
+    if (k === 'arrow') sfx.arrow(); else if (k === 'quarrel' || k === 'dagger') sfx.bolt();
+    else sfx.magic((k ?? 'orb') as 'orb');
+  }
+  private miss(m: Mob) { sfx.miss(); this.float(this.P(m.x, m.y, m.h + 0.1), 'Errou', '#b8b8c8', 7); }
 
   private damage(m: Mob, dmg: number, crit: boolean, color = 0xffffff, noProc = false) {
     if (m.dead) return;
     m.hp -= dmg;
+    sfx.hit(crit);
     this.float(this.P(m.x, m.y, m.h * 0.9), (crit ? '¡' : '') + dmg + (crit ? '!' : ''), crit ? '#ffd23f' : '#ffffff', crit ? 12 : 9);
     this.burst(this.P(m.x, m.y, m.h * 0.55), color);
     if (crit) this.vfx.impact(this.P(m.x, m.y, m.h * 0.6), 0xffd23f, true);
@@ -873,6 +887,7 @@ export class World3D {
 
   private kill(m: Mob) {
     m.dead = true; m.vx = m.vy = 0;
+    if (m.def.boss) sfx.boss(); else sfx.mobDie();
     m.v.setMoving(false); m.v.die();
     m.deadAt = this.now;
     if (m.boss) this.bossReset(m);
@@ -884,7 +899,7 @@ export class World3D {
     const mult = diff >= 5 ? 0.2 : diff >= 3 ? 0.6 : 1;
     const xp = Math.round(m.def.xp * mult * (1 + (race.mods.xp ?? 0) + this.d.xpPct));
     const gold = Math.round(randGold(m.def.level) * (m.def.boss ? 6 : 1) * (1 + this.d.goldPct));
-    player.gold += gold; player.kills++;
+    player.gold += gold; player.kills++; sfx.coin();
     this.float(this.P(m.x, m.y, m.h + 0.5), `+${xp} XP`, '#c084fc', 8);
     gainXp(xp);
     bus.emit('log', `${m.def.name} derrotado: +${xp} XP, +${gold} ouro`, '#d8d0f0');
@@ -906,11 +921,12 @@ export class World3D {
       bus.emit('log', `Você obteve: ${FRAGMENT_BY_ID[m.def.fragment].name}!`, '#ffd23f');
     }
     const boss = !!m.def.boss;
-    if (Math.random() < (boss ? 1 : 0.32)) {
+    if (Math.random() < (boss || m.def.elite ? 1 : 0.32)) {
       const r = Math.random();
       const off = allowedOff(cls);
       const slot: Slot = r < 0.24 ? 'mainhand' : r < 0.4 ? 'body' : r < 0.52 ? 'head' : r < 0.64 ? 'legs' : r < 0.78 && off.length ? 'offhand' : 'accessory';
-      const it = genItem({ slot, level: m.def.level, style: cls.style, rarity: rollRarity(boss), armorMax: cls.armor, off, cid: cls.id });
+      const it = genItem({ slot, level: m.def.level, style: cls.style, rarity: rollRarity(boss, !!m.def.elite), armorMax: cls.armor, off, cid: cls.id });
+      sfx.loot(it.rarity);
       if (addItem(it)) bus.emit('log', `Item encontrado: ${it.name}`, RARITY_COLORS[it.rarity]);
       else { const g = dumpValue(it); player.gold += g; bus.emit('log', `Mochila cheia: ${it.name} vendido por ${g} ouro`, '#f1c40f'); }
     }
@@ -941,11 +957,11 @@ export class World3D {
     const now = this.now;
     if (player.level < sk.unlock) { bus.emit('log', `${sk.name} desbloqueia no nível ${sk.unlock}.`, '#a79cc4'); return; }
     if ((this.cds[sk.id] ?? 0) > now) return;
-    if (player.en < sk.cost) { bus.emit('log', 'Energia insuficiente.', '#8ab4ff'); bus.emit('nope', i); return; }
+    if (player.en < sk.cost) { bus.emit('log', 'Energia insuficiente.', '#8ab4ff'); (sfx.nope(), bus.emit('nope', i)); return; }
     const run = () => {
-      if (player.en < sk.cost) { bus.emit('nope', i); return; }
+      if (player.en < sk.cost) { (sfx.nope(), bus.emit('nope', i)); return; }
       if (this.perform(sk)) { player.en -= sk.cost; this.cds[sk.id] = this.now + sk.cd; }
-      else bus.emit('nope', i);
+      else (sfx.nope(), bus.emit('nope', i));
     };
     if (this.d.style !== 'melee' && (sk.kind === 'bolt' || sk.kind === 'strike')) {
       this.pv.attack(this.attackClip());
@@ -969,6 +985,7 @@ export class World3D {
     const fx = CLASS_FX[player.classId];
     const cast = (clip?: string) => this.pv.attack(clip ?? this.attackClip());
     const foot = () => this.P(this.p.x, this.p.y, 0);
+    { const sk0 = sk.kind; if (sk0 === 'nova') sfx.nova(); else if (sk0 === 'heal' || sk0 === 'buff') sfx.buff(); else if (sk0 === 'summon') sfx.summon(); else if (sk0 === 'bolt' || sk0 === 'drain') this.rangedSfx(fx?.proj ?? 'orb'); else sfx.skill(); }
     switch (sk.kind) {
       case 'strike': {
         const m = this.pickTarget(sk.range ?? 30);
@@ -1136,6 +1153,7 @@ export class World3D {
     if (now < this.potCd) return;
     if (player.potions[kind] <= 0) { bus.emit('log', 'Você não tem essa poção.', '#a79cc4'); return; }
     const pos = this.P(this.p.x, this.p.y, 2.2);
+    sfx.potion();
     if (kind === 'heal') {
       if (player.hp >= this.d.maxHp) return;
       const a = 30 + player.level * 8;
@@ -1234,7 +1252,7 @@ export class World3D {
     if (crit) dmg += roll(m.def.dmg[0], m.def.dmg[1]);
     dmg += m.def.dmgBonus;
     this.lastHit = time;
-    player.hp -= dmg;
+    player.hp -= dmg; sfx.hurt();
     this.float(head, '-' + dmg, crit ? '#ff5050' : '#ff8a8a', crit ? 11 : 9);
     this.pv.flash(); this.pv.hit();
     this.shake = 0.08;
@@ -1242,6 +1260,7 @@ export class World3D {
   }
 
   private die(time: number) {
+    sfx.die();
     const race = RACE_BY_ID[player.raceId];
     if (race.mods.relentless && time > this.relentlessAt) {
       player.hp = 1; this.relentlessAt = time + 90000;
@@ -1455,7 +1474,7 @@ export class World3D {
     if (this.now < this.dashUntil) { this.float(head, 'Esquivou!', '#8ab4ff', 9); return; }
     const dmg = roll(ab.dmg[0], ab.dmg[1]) + ab.dmg[2];
     this.lastHit = this.now;
-    player.hp -= dmg;
+    player.hp -= dmg; sfx.hurt();
     this.float(head, '-' + dmg, '#ff5050', 12);
     bus.emit('log', `${ab.name} atinge você: -${dmg}`, '#ff8a8a');
     this.pv.flash(); this.pv.hit(); this.shake = 0.22;

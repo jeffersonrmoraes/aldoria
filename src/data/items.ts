@@ -397,8 +397,9 @@ export function starterArmor(type: ArmorType): Item {
   };
 }
 
-export function rollRarity(boss = false): Rarity {
+export function rollRarity(boss = false, elite = false): Rarity {
   const r = Math.random() * 100;
+  if (elite) return r < 8 ? 4 : r < 45 ? 3 : 2;
   if (boss) return r < 30 ? 3 : 2;
   if (r < 60) return 0;
   if (r < 88) return 1;

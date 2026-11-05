@@ -15,6 +15,7 @@ export interface MobDef {
   xp: number;
   scale: number;
   boss?: boolean;
+  elite?: boolean;     // versão elite (mais forte, drop garantido)
   fragment?: string;   // fragmento do Selo concedido ao ser derrotado
 }
 
@@ -30,6 +31,15 @@ export const MOBS: MobDef[] = [
   { id: 'orc', name: 'Orc', level: 7, hp: 85, ac: 13, atk: 6, dmg: [1, 10], dmgBonus: 3, speed: 52, aggro: 105, atkInterval: 1500, xp: 58, scale: 1 },
   { id: 'bugbear', name: 'Bugbear', level: 8, hp: 120, ac: 15, atk: 6, dmg: [2, 6], dmgBonus: 3, speed: 50, aggro: 105, atkInterval: 1600, xp: 74, scale: 1.5 },
   { id: 'ogre', name: 'Ogro', level: 9, hp: 170, ac: 11, atk: 7, dmg: [2, 8], dmgBonus: 4, speed: 40, aggro: 100, atkInterval: 1900, xp: 98, scale: 2 },
+  { id: 'jackal', name: 'Chacal', level: 1, hp: 16, ac: 12, atk: 3, dmg: [1, 4], dmgBonus: 1, speed: 64, aggro: 85, atkInterval: 1300, xp: 11, scale: 0.85 },
+  { id: 'bandit', name: 'Bandido', level: 2, hp: 28, ac: 12, atk: 3, dmg: [1, 6], dmgBonus: 1, speed: 52, aggro: 95, atkInterval: 1500, xp: 18, scale: 1 },
+  { id: 'worg', name: 'Worg', level: 4, hp: 58, ac: 13, atk: 5, dmg: [1, 8], dmgBonus: 2, speed: 78, aggro: 105, atkInterval: 1300, xp: 30, scale: 1.3 },
+  { id: 'hobgoblin', name: 'Hobgoblin', level: 4, hp: 52, ac: 14, atk: 5, dmg: [1, 8], dmgBonus: 2, speed: 50, aggro: 95, atkInterval: 1500, xp: 30, scale: 1.1 },
+  { id: 'ghoul', name: 'Carniçal', level: 6, hp: 78, ac: 12, atk: 5, dmg: [1, 8], dmgBonus: 2, speed: 55, aggro: 95, atkInterval: 1400, xp: 46, scale: 1 },
+  { id: 'shadow', name: 'Sombra', level: 6, hp: 70, ac: 12, atk: 5, dmg: [1, 8], dmgBonus: 3, speed: 60, aggro: 100, atkInterval: 1400, xp: 48, scale: 1.1 },
+  { id: 'orcshaman', name: 'Xamã Orc', level: 8, hp: 90, ac: 12, atk: 7, dmg: [1, 10], dmgBonus: 3, speed: 50, aggro: 110, atkInterval: 1600, xp: 76, scale: 1.1 },
+  { id: 'gnoll', name: 'Gnoll', level: 8, hp: 100, ac: 13, atk: 6, dmg: [1, 10], dmgBonus: 3, speed: 60, aggro: 105, atkInterval: 1400, xp: 74, scale: 1.15 },
+  { id: 'troll', name: 'Troll', level: 10, hp: 200, ac: 13, atk: 8, dmg: [2, 8], dmgBonus: 4, speed: 46, aggro: 105, atkInterval: 1700, xp: 118, scale: 2 },
   { id: 'gnarlmaw', name: 'Gnarlmaw, o Ogro Ancião', level: 10, hp: 1100, ac: 14, atk: 8, dmg: [2, 8], dmgBonus: 4, speed: 44, aggro: 210, atkInterval: 1500, xp: 400, scale: 3, boss: true },
   // chefes e monstros de masmorra
   { id: 'cultist', name: 'Cultista Cinzento', level: 6, hp: 80, ac: 12, atk: 5, dmg: [1, 8], dmgBonus: 2, speed: 55, aggro: 100, atkInterval: 1500, xp: 40, scale: 1 },
@@ -41,3 +51,8 @@ export const MOBS: MobDef[] = [
 ];
 
 export const MOB_BY_ID: Record<string, MobDef> = Object.fromEntries(MOBS.map((m) => [m.id, m]));
+
+/** Versão elite de um monstro: mais vida e dano, XP triplo e item garantido. */
+export function eliteOf(d: MobDef): MobDef {
+  return { ...d, name: 'Elite: ' + d.name, hp: Math.round(d.hp * 2.4), atk: d.atk + 1, dmgBonus: d.dmgBonus + 2, xp: d.xp * 3, scale: d.scale * 1.25, elite: true };
+}

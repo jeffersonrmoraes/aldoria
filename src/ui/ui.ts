@@ -4,6 +4,7 @@ import { ABILITIES, ABILITY_NAMES, ABILITY_SHORT, MAX_LEVEL } from '../data/rule
 import { BAG_SIZE, PlayerState, addItem, derive, deleteSave, equipBlock, gainXp, listSaves, loadSave, newPlayer, player, save, setPlayer, setSlot } from '../game/state';
 import { Item, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
 import { QUESTS, ZONES, ZoneDef, zoneAt } from '../chapters/chapter1';
+import { audioCfg, setAudio, sfx } from '../game/audio';
 import { BUILDINGS, townOf } from '../chapters/town';
 import { MapKind, drawMap, resetMapCache } from './mapview';
 import { exploredVersion, isExplored, mapSource } from '../game/mapdata';
@@ -163,6 +164,7 @@ export function initHud() {
     s.onclick = () => bus.emit('potion', k);
     sk.appendChild(s);
   }
+  document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest?.('button')) sfx.click(); });
   q('#bi').onclick = () => toggleWin('inv');
   q('#bc').onclick = () => toggleWin('char');
   q('#bh').onclick = () => toggleWin('help');
@@ -350,8 +352,15 @@ function renderPause() {
       <button id="p-go" class="primary">▶ Continuar</button>
       <button id="p-help">❓ Como jogar</button>
       <button id="p-menu">🏠 Salvar e voltar ao menu principal</button>
-    </div>`);
+    </div>
+    <div style="margin-top:12px;font-size:13px;color:#cfc8e8"><b>Som</b>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:6px">Efeitos <input id="a-sfx" type="range" min="0" max="100" value="${Math.round(audioCfg().sfx * 100)}" style="flex:1"></label>
+      <label style="display:flex;gap:8px;align-items:center">Música <input id="a-mus" type="range" min="0" max="100" value="${Math.round(audioCfg().music * 100)}" style="flex:1"></label>
+      <label style="display:flex;gap:8px;align-items:center"><input id="a-mute" type="checkbox" ${audioCfg().muted ? 'checked' : ''}> Silenciar tudo</label></div>`);
   bindClose(w);
+  q<HTMLInputElement>('#a-sfx', w).oninput = (e) => { setAudio({ sfx: Number((e.target as HTMLInputElement).value) / 100 }); sfx.click(); };
+  q<HTMLInputElement>('#a-mus', w).oninput = (e) => setAudio({ music: Number((e.target as HTMLInputElement).value) / 100 });
+  q<HTMLInputElement>('#a-mute', w).onchange = (e) => setAudio({ muted: (e.target as HTMLInputElement).checked });
   q('#p-go', w).onclick = closeWin;
   q('#p-help', w).onclick = () => { curWin = 'help'; renderHelp(); };
   q('#p-menu', w).onclick = () => { save(); closeWin(); bus.emit('menu'); };
@@ -582,13 +591,13 @@ function shopWindow(kind: ShopId) {
     if (player.gold < price) { onLog('Ouro insuficiente para esta relíquia.', '#ff8a8a'); return; }
     if (!addItem(it)) { onLog('Mochila cheia.', '#ff8a8a'); return; }
     player.gold -= price; shopStock.splice(Number(b.dataset.r), 1);
-    onLog(`Comprou ${it.name} por ${fmtGold(price)} de ouro.`, RARITY_COLORS[it.rarity]); save(); reopen();
+    onLog(`Comprou ${it.name} por ${fmtGold(price)} de ouro.`, RARITY_COLORS[it.rarity]); sfx.buy(); save(); reopen();
   }));
   const sellIt = (it: Item) => { const o = sellOffer(it, kind, cha); player.gold += o.price; registerSale(kind, it); return o; };
   w.querySelectorAll<HTMLElement>('[data-s]').forEach((b) => (b.onclick = () => {
     const n = Number(b.dataset.s), it = player.items[n];
     player.items.splice(n, 1); const o = sellIt(it);
-    onLog(`Vendeu ${it.name} por ${fmtGold(o.price)}${o.special ? ' (preço de especialista!)' : ''}.`, o.special ? '#ffd23f' : '#cfc8e8'); save(); reopen();
+    onLog(`Vendeu ${it.name} por ${fmtGold(o.price)}${o.special ? ' (preço de especialista!)' : ''}.`, o.special ? '#ffd23f' : '#cfc8e8'); sfx.coin(); save(); reopen();
   }));
   const bulk = (pred: (it: Item) => boolean) => {
     const keep: Item[] = []; let tot = 0;
@@ -658,7 +667,7 @@ function renderEnchant() {
     player.gold -= c;
     encSel.ench = { id, lvl };
     encSel.value = Math.round(baseVal * (1 + 0.3 * lvl));
-    onLog(`${encSel.name} foi encantada!`, '#c084fc'); bus.emit('recalc'); save(); renderEnchant();
+    sfx.enchant(); onLog(`${encSel.name} foi encantada!`, '#c084fc'); bus.emit('recalc'); save(); renderEnchant();
   }));
 }
 

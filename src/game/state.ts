@@ -1,3 +1,4 @@
+import { CLASS_POWER } from '../data/balance';
 import { ABILITIES, Ability, Bonus, addBonus, levelFromXp, mod, prof, XP_TABLE, MAX_LEVEL } from '../data/rules';
 import { treeTotals } from '../data/progression';
 import { activeSets } from '../data/sets';
@@ -105,7 +106,7 @@ export function derive(p: PlayerState): Derived {
     ab, md, prof: pr, maxHp, maxEn, ac,
     atk: pr + md[cls.primary] + plus,
     dmgBonus: md[cls.primary] + plus + (tr.dmg ?? 0),
-    critPct: tr.crit ?? 0, dmgPct: tr.dmgPct ?? 0, lifesteal: tr.lifesteal ?? 0, manaKill: tr.manaKill ?? 0, goldPct: tr.goldPct ?? 0, xpPct: tr.xpPct ?? 0, bonus: tr,
+    critPct: tr.crit ?? 0, dmgPct: (1 + (tr.dmgPct ?? 0)) * (CLASS_POWER[cls.id] ?? 1) - 1, lifesteal: tr.lifesteal ?? 0, manaKill: tr.manaKill ?? 0, goldPct: tr.goldPct ?? 0, xpPct: tr.xpPct ?? 0, bonus: tr,
     dice: w?.dice ?? [1, 4],
     interval: 1000 * cls.speedMod * (w?.speed ?? 1) * lvlSpeed * (1 - Math.min(0.5, tr.atkSpeed ?? 0)),
     range: cls.range,
