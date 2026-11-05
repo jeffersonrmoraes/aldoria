@@ -27,6 +27,7 @@ Novas lojas: adicionar `BuildingKind` em `town.ts`, emblema em `buildings.ts`, i
 
 ## Menu e personagens
 - **Tela inicial temática** (`showMenu` em `ui.ts`, CSS `.tscreen` em `index.html`): céu noturno com lua, dragão voando, castelo, brasas, d20 girando, título serifado dourado e fichas de personagem em pergaminho (selo numerado). Só CSS/SVG, sem arquivos.
+- **Criação de personagem** (`showCreate`, CSS `.create`/`.ctitle`): painel dourado com título, etapas I–IV numeradas, botão 🎲 de nome aleatório.
 - 3 espaços de personagem (`aldoria-save-slot-N`; o save antigo migra para o espaço 1).
 - **Esc** abre o Menu (Continuar / Como jogar / Salvar e voltar ao menu principal).
 

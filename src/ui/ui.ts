@@ -121,11 +121,12 @@ function showCreate(start: () => void, slot: number) {
     const tmp = newPlayer('x', st.race, st.cls, st.tone);
     const d = derive(tmp);
     screen.innerHTML = `<div class="create panel hit">
-      <div>
-        <h3>Nome</h3><input type="text" id="nm" maxlength="14" placeholder="Nome do herói" value="">
-        <h3>Raça</h3><div class="cards">${RACES.map((r) => `<div class="card ${r.id === st.race ? 'sel' : ''}" data-r="${r.id}">${r.name}<small>${Object.entries(r.bonus).length > 3 ? '+1 todos' : Object.entries(r.bonus).map(([k, v]) => '+' + v + ' ' + ABILITY_SHORT[k as keyof typeof ABILITY_SHORT]).join(' ')}</small></div>`).join('')}</div>
-        <h3>Classe</h3><div class="cards">${CLASSES.map((c) => `<div class="card ${c.id === st.cls ? 'sel' : ''}" data-c="${c.id}">${c.name}<small>${c.role}</small></div>`).join('')}</div>
-        <h3>${race.id === 'dragonborn' ? 'Cor das escamas' : 'Tom da pele'}</h3><div class="swatches">${race.tones.map((c) => `<div class="sw ${c === st.tone ? 'sel' : ''}" data-h="${c}" style="background:${c}"></div>`).join('')}</div>
+      <div class="ctitle">⚔ Forje seu herói <small>Espaço ${slot + 1}</small></div>
+      <div class="cleft">
+        <h3><span class="cn">I</span> Nome</h3><div class="nrow"><input type="text" id="nm" maxlength="14" placeholder="Nome do herói" value=""><button id="rnd" title="Nome aleatório">🎲</button></div>
+        <h3><span class="cn">II</span> Raça</h3><div class="cards">${RACES.map((r) => `<div class="card ${r.id === st.race ? 'sel' : ''}" data-r="${r.id}">${r.name}<small>${Object.entries(r.bonus).length > 3 ? '+1 todos' : Object.entries(r.bonus).map(([k, v]) => '+' + v + ' ' + ABILITY_SHORT[k as keyof typeof ABILITY_SHORT]).join(' ')}</small></div>`).join('')}</div>
+        <h3><span class="cn">III</span> Classe</h3><div class="cards">${CLASSES.map((c) => `<div class="card ${c.id === st.cls ? 'sel' : ''}" data-c="${c.id}">${c.name}<small>${c.role}</small></div>`).join('')}</div>
+        <h3><span class="cn">IV</span> ${race.id === 'dragonborn' ? 'Cor das escamas' : 'Tom da pele'}</h3><div class="swatches">${race.tones.map((c) => `<div class="sw ${c === st.tone ? 'sel' : ''}" data-h="${c}" style="background:${c}"></div>`).join('')}</div>
       </div>
       <div class="preview">
         <canvas id="pv" width="256" height="256"></canvas>
@@ -139,6 +140,8 @@ function showCreate(start: () => void, slot: number) {
     const nm = q<HTMLInputElement>('#nm', screen);
     nm.value = st.name;
     nm.oninput = () => { st.name = nm.value; };
+    const NAMES = ['Thorin', 'Elara', 'Borin', 'Lyra', 'Kael', 'Mira', 'Darian', 'Sylas', 'Brenna', 'Garrick', 'Tessa', 'Alaric', 'Nyx', 'Rurik', 'Isolde', 'Varek'];
+    q('#rnd', screen).onclick = () => { st.name = NAMES[Math.floor(Math.random() * NAMES.length)]; nm.value = st.name; };
     const pv = q<HTMLCanvasElement>('#pv', screen);
     pv.getContext('2d')!.drawImage(portrait(st.race, st.cls, st.tone, 'full'), 0, 0);
     screen.querySelectorAll<HTMLElement>('[data-r]').forEach((e) => (e.onclick = () => { st.race = e.dataset.r!; render(); }));
