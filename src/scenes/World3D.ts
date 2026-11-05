@@ -28,6 +28,7 @@ import { dumpValue } from '../data/economy';
 import { NetClient } from '../net/online';
 import { RemotePlayers } from '../net/remotes';
 import { onlineWanted } from '../net/config';
+import { getToken } from '../net/account';
 import type { HitMsg, HurtMsg, KillMsg, SheetMsg } from '../net/protocol';
 import { eliteAt, killXp, skillAt as sharedSkillAt, worldSig } from '../game/combat';
 
@@ -468,6 +469,7 @@ export class World3D {
       chat.onkeyup = (e) => e.stopPropagation();
     }
     if (!onlineWanted()) { bus.emit('net', 'off'); return; }
+    if (!getToken()) { bus.emit('net', 'off'); bus.emit('log', 'Para jogar online, entre na sua conta no menu inicial.', '#ffb3a0'); return; }
     let lastSt = '';
     this.net = new NetClient({
       status: (s, d) => {
@@ -496,7 +498,7 @@ export class World3D {
         if (m.id !== this.net?.selfId) this.remotes?.say(m.id, m.t);
       },
     });
-    void this.net.connect({ name: player.name, raceId: player.raceId, classId: player.classId, tone: player.tone, level: player.level });
+    void this.net.connect({ name: player.name, raceId: player.raceId, classId: player.classId, tone: player.tone, level: player.level, tok: getToken() });
   }
 
   // ---------- monstros do servidor (modo online) ----------

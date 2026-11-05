@@ -19,6 +19,7 @@ import { SET_BY_ID, activeSets, setTipHtml } from '../data/sets';
 import { buyPrice, buysItem, dumpValue, fmtGold, potionPrice, registerSale, sellOffer } from '../data/economy';
 import { bonusLines } from '../data/rules';
 import { onlineWanted, setOnlineWanted } from '../net/config';
+import { authenticate, getUser, loggedIn, logout } from '../net/account';
 
 const root = document.getElementById('ui')!;
 
@@ -69,10 +70,35 @@ export function showMenu(start: () => void) {
       <div class="hero-h">Escolha seu herói</div>
       <div class="slots">${cards}</div>
       <label class="onl" title="Conecta ao servidor para ver outros jogadores e conversar (Enter). Se o servidor estiver fora do ar, o jogo segue offline."><input type="checkbox" id="onl"> 🌐 Jogar online <small>(ver outros heróis e conversar)</small></label>
+      <div class="acct" id="acct"></div>
       <p class="tcredits">Baseado no SRD 5.1 de D&amp;D (CC-BY-4.0) · Modelos 3D: KayKit (CC0) · Ícones: Kenney.nl (CC0)</p>
     </div>`, 'tscreen');
   root.appendChild(m);
-  const onl = q<HTMLInputElement>('#onl', m); onl.checked = onlineWanted(); onl.onchange = () => setOnlineWanted(onl.checked);
+  const onl = q<HTMLInputElement>('#onl', m); onl.checked = onlineWanted();
+  const acct = q('#acct', m);
+  const renderAcct = (msg = '', busy = false) => {
+    if (!onl.checked) { acct.innerHTML = ''; return; }
+    if (loggedIn()) {
+      acct.innerHTML = `<span>👤 Conta <b>${escapeHtml(getUser())}</b> — seus heróis ficam salvos na nuvem</span> <button id="lo">Sair da conta</button>`;
+      q('#lo', acct).onclick = () => { logout(); showMenu(start); };
+      return;
+    }
+    acct.innerHTML = `<div class="aform"><b>Entre para jogar online</b>
+      <input id="au" maxlength="16" placeholder="usuário" autocomplete="username"><input id="ap" type="password" maxlength="64" placeholder="senha" autocomplete="current-password">
+      <button class="primary" id="ain" ${busy ? 'disabled' : ''}>Entrar</button><button id="areg" ${busy ? 'disabled' : ''}>Criar conta</button>
+      <div class="amsg">${busy ? 'Falando com o servidor… (pode levar até 1 minuto se ele estava dormindo)' : escapeHtml(msg)}</div></div>`;
+    const go = async (mode: 'login' | 'register') => {
+      const u = q<HTMLInputElement>('#au', acct).value.trim(), p = q<HTMLInputElement>('#ap', acct).value;
+      renderAcct('', true);
+      const err = await authenticate(mode, u, p);
+      if (err) renderAcct(err); else showMenu(start);
+    };
+    q('#ain', acct).onclick = () => go('login');
+    q('#areg', acct).onclick = () => go('register');
+    q<HTMLInputElement>('#ap', acct).onkeydown = (e) => { if ((e as KeyboardEvent).key === 'Enter') go('login'); };
+  };
+  onl.onchange = () => { setOnlineWanted(onl.checked); renderAcct(); };
+  renderAcct();
   saves.forEach((p, n) => { if (p) q<HTMLCanvasElement>(`[data-pc="${n}"]`, m).getContext('2d')!.drawImage(portrait(p.raceId, p.classId, p.tone, 'bust'), 0, 0); });
   qa<HTMLElement>('[data-play]', m).forEach((b) => (b.onclick = () => { const n = Number(b.dataset.play); const p = loadSave(n); if (p) { setSlot(n); setPlayer(p); start(); } }));
   qa<HTMLElement>('[data-new]', m).forEach((b) => (b.onclick = () => showCreate(start, Number(b.dataset.new))));

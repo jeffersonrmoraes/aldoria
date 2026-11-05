@@ -33,6 +33,8 @@ export interface PlayerState {
   /** nós comprados nas árvores de habilidade e de atributos */
   skills?: Record<string, 1>;
   attrs?: Record<string, 1>;
+  /** instante do último salvamento (resolve conflito entre o save local e o da nuvem) */
+  sv?: number;
 }
 
 export const BAG_SIZE = 24;
@@ -173,10 +175,16 @@ function migrateLegacy() {
 }
 
 export const hasSave = (n = activeSlot) => { migrateLegacy(); return !!localStorage.getItem(slotKey(n)); };
+/** ganchos da conta online (src/net/account.ts) */
+export const hooks: { save: ((n: number, p: PlayerState) => void) | null; del: ((n: number) => void) | null } = { save: null, del: null };
 export function save() {
   if (!player) return;
+  player.sv = Date.now();
   try { localStorage.setItem(slotKey(activeSlot), JSON.stringify(player)); } catch { /* quota */ }
+  hooks.save?.(activeSlot, player);
 }
+export const exportSlot = (n: number) => { try { return localStorage.getItem(slotKey(n)); } catch { return null; } };
+export const importSlot = (n: number, json: string) => { try { localStorage.setItem(slotKey(n), json); } catch { /* quota */ } };
 export function listSaves(): (PlayerState | null)[] {
   migrateLegacy();
   return Array.from({ length: SLOTS }, (_, n) => loadSave(n));
@@ -204,7 +212,7 @@ function migrateEquipment(p: PlayerState) {
   for (const k of Object.keys(eq)) migrateItem(eq[k]);
   p.items.forEach((it) => migrateItem(it));
 }
-export const deleteSave = (n = activeSlot) => localStorage.removeItem(slotKey(n));
+export const deleteSave = (n = activeSlot) => { localStorage.removeItem(slotKey(n)); hooks.del?.(n); };
 
 export const xpForNext = (level: number) => (level >= MAX_LEVEL ? XP_TABLE[MAX_LEVEL - 1] : XP_TABLE[level]);
 export const xpForCurrent = (level: number) => XP_TABLE[level - 1];

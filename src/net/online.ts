@@ -53,6 +53,7 @@ export class NetClient {
       room.onMessage('leave', (m: { id: string }) => this.h.leave(m.id));
       room.onMessage('snap', (s: SnapMsg) => this.h.snap(s));
       room.onMessage('chat', (m: ChatMsg) => this.h.chat(m));
+      room.onMessage('kicked', (m: { why: string }) => { this.closed = true; this.set('error', m.why); });
       room.onMessage('ready', (m: ReadyMsg) => this.h.ready(m));
       room.onMessage('mobs', (a: MobsMsg) => this.h.mobs(a));
       room.onMessage('hit', (m: HitMsg) => this.h.hit(m));

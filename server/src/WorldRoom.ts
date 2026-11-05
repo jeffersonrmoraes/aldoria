@@ -3,11 +3,13 @@ import { ChatMsg, JoinOptions, PlayerInfo, PosMsg, PROTOCOL, ReadyMsg, SheetMsg,
 import { WorldSim, SimPlayer } from './sim.js';
 import { sanitizeSheet } from './sheet.js';
 import { derive } from '../../src/game/state';
+import { readToken } from './auth.js';
 
 interface Peer extends PlayerInfo, SimPlayer {
   x: number; y: number; f: number; mv: number; loc: string;
   lastPos: number; lastChat: number; chatBurst: number;
   msgs: number; msgAt: number; lastSheet: number;
+  acc: string; user: string;
 }
 
 const MAX_CLIENTS = 60;
@@ -124,17 +126,24 @@ export class WorldRoom extends Room {
 
   onAuth(_client: Client, options: JoinOptions) {
     if (!options || options.v !== PROTOCOL) throw new Error('Versão do jogo incompatível. Recarregue a página (Ctrl+F5).');
-    return true;
+    const who = readToken(options.tok);
+    if (!who) throw new Error('Faça login para jogar online.');
+    return who;
   }
 
-  onJoin(client: Client, o: JoinOptions) {
+  onJoin(client: Client, o: JoinOptions, who: { id: string; username: string }) {
+    // a mesma conta só pode ter uma sessão: a mais antiga é desconectada
+    for (const c of this.clients) {
+      const old = this.peers.get(c.sessionId);
+      if (old && old.acc === who.id && c.sessionId !== client.sessionId) { c.send('kicked', { why: 'Sua conta entrou em outro lugar.' }); c.leave(); }
+    }
     const p: Peer = {
       id: client.sessionId,
       name: clean(o.name, 16) || 'Aventureiro',
       raceId: clean(o.raceId, 20), classId: clean(o.classId, 20), tone: clean(o.tone, 12),
       level: num(o.level, 1, 99, 1),
       x: 0, y: 0, f: 0, mv: 0, loc: 'world',
-      lastPos: 0, lastChat: 0, chatBurst: 0, msgs: 0, msgAt: 0, lastSheet: 0,
+      lastPos: 0, lastChat: 0, chatBurst: 0, msgs: 0, msgAt: 0, lastSheet: 0, acc: who.id, user: who.username,
       dead: false, sheet: null, d: null, buffs: [], cds: {}, lastAtk: 0, lastMn: 0,
       send: (type, msg) => client.send(type, msg),
     };

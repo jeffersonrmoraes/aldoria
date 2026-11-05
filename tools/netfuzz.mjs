@@ -1,5 +1,10 @@
 // Teste de robustez do servidor: todas as classes usam todas as habilidades (e mensagens inválidas) perto de monstros.
 import { Client } from 'colyseus.js';
+
+// cria uma conta de teste no servidor e devolve o token
+const HTTP = (process.argv[2] ?? 'ws://localhost:2599').replace(/^ws/, 'http');
+let _tok; const tok = async () => _tok ??= (await (await fetch(HTTP + '/api/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ user: 'bot' + Math.random().toString(36).slice(2, 9), pass: 'senha123' }) })).json()).token;
+
 const url = process.argv[2] ?? 'ws://localhost:2599';
 const classes = ['barbarian','bard','cleric','druid','fighter','monk','paladin','ranger','rogue','sorcerer','warlock','wizard','necromancer','eldknight','bladesinger','illusionist'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -7,7 +12,7 @@ let total = 0, hits = 0;
 for (const classId of classes) {
   const c = new Client(url);
   let room;
-  try { room = await c.joinOrCreate('world', { v: 2, name: classId, raceId: 'human', classId, tone: 'a', level: 10 }); } catch (e) { console.log(classId, 'falhou ao entrar:', e.message); continue; }
+  try { room = await c.joinOrCreate('world', { v: 3, tok: await tok(), name: classId, raceId: 'human', classId, tone: 'a', level: 10 }); } catch (e) { console.log(classId, 'falhou ao entrar:', e.message); continue; }
   let mobs = [];
   for (const t of ['welcome','roster','online','snap','join','leave','matk','ready','kill','hurt']) room.onMessage(t, () => {});
   room.onMessage('mobs', (a) => { mobs = a; });

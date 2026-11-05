@@ -1,5 +1,5 @@
-// Protocolo cliente <-> servidor (v2). Espelho de server/src/protocol.ts — mantenha os dois iguais.
-export const PROTOCOL = 2;
+// Protocolo cliente <-> servidor (v3). Espelho de server/src/protocol.ts — mantenha os dois iguais.
+export const PROTOCOL = 3;
 
 /** Dados públicos de um jogador (aparência e identificação). */
 export interface PlayerInfo {
@@ -19,6 +19,8 @@ export interface JoinOptions {
   classId: string;
   tone: string;
   level: number;
+  /** token da conta (login em /api/login) */
+  tok: string;
 }
 
 /** 'pos': cliente -> servidor (x/y em pixels do mundo, f = direção, mv = andando, loc = mapa atual, dd = morto). */

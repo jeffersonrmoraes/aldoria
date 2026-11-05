@@ -12,3 +12,7 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22
+      - key: AUTH_SECRET        # assina os logins; gerado pelo Render
+        generateValue: true
+      - key: DATABASE_URL       # Postgres gratuito (ex.: Neon): contas e personagens. Sem ele os dados somem quando o servidor dorme!
+        sync: false
