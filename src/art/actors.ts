@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { clips, cloneModel, modelScale } from './models';
 import { RACE_BY_ID } from '../data/races';
+import { Look, heightScale, sanitizeLook } from '../data/looks';
+import { applyLook } from './look3d';
 
 export interface Visual {
   root: THREE.Object3D;
@@ -392,11 +394,13 @@ export const CLASS_LOOK: Record<string, ModelSpec> = {
   illusionist: { model: 'Mage', show: ['1H_Wand'], cape: '#d060d0' },
 };
 
-export function playerActor(raceId: string, classId: string, tone: string): SkinnedActor {
+export function playerActor(raceId: string, classId: string, tone: string, look?: Look | null): SkinnedActor {
   const race = RACE_BY_ID[raceId];
-  const a = new SkinnedActor(CLASS_LOOK[classId], race.look.scale ?? 1);
+  const lk = look ? sanitizeLook(look) : null;   // sem aparência (save antigo): visual original do modelo
+  const a = new SkinnedActor(CLASS_LOOK[classId], (race.look.scale ?? 1) * (lk ? heightScale(lk.height) : 1));
   a.setSkin(tone);
   addRacialTraits(a, race.look, tone);
+  if (lk) applyLook(a, lk, tone);
   return a;
 }
 

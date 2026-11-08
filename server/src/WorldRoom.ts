@@ -3,6 +3,7 @@ import { ChatMsg, JoinOptions, PlayerInfo, PosMsg, PROTOCOL, ReadyMsg, SheetMsg,
 import { WorldSim, SimPlayer } from './sim.js';
 import { sanitizeSheet } from './sheet.js';
 import { derive } from '../../src/game/state';
+import { sanitizeLook } from '../../src/data/looks';
 import { readToken } from './auth.js';
 
 /** Anti-trapaça: nível confiável por personagem (conta+nome+classe). Sobe no máximo 1 nível a cada 40 s conectado. */
@@ -213,7 +214,7 @@ export class WorldRoom extends Room {
     const p: Peer = {
       id: client.sessionId,
       name: clean(o.name, 16) || 'Aventureiro',
-      raceId: clean(o.raceId, 20), classId: clean(o.classId, 20), tone: clean(o.tone, 12),
+      raceId: clean(o.raceId, 20), classId: clean(o.classId, 20), tone: clean(o.tone, 12), look: o.look ? { ...sanitizeLook(o.look) } : undefined,
       level: num(o.level, 1, 99, 1),
       x: 0, y: 0, f: 0, mv: 0, loc: 'world',
       lastPos: 0, lastChat: 0, chatBurst: 0, msgs: 0, msgAt: 0, lastSheet: 0, lastWarn: "", acc: who.id, user: who.username,
@@ -242,7 +243,7 @@ export class WorldRoom extends Room {
   }
 
   private info(p: Peer): PlayerInfo {
-    return { id: p.id, name: p.name, raceId: p.raceId, classId: p.classId, tone: p.tone, level: p.level };
+    return { id: p.id, name: p.name, raceId: p.raceId, classId: p.classId, tone: p.tone, level: p.level, look: p.look };
   }
 
   /** Lista (com aparência) dos jogadores do mesmo mapa; enviada ao entrar e ao trocar de mapa. */

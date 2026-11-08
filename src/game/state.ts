@@ -7,6 +7,7 @@ import { ARMOR_RANK, CLASS_BY_ID, Style } from '../data/classes';
 import { RACE_BY_ID } from '../data/races';
 import { allowedOff, findBase, ItemStat, Item, Slot, migrateItem, starterArmor, starterShield } from '../data/items';
 import { bus } from './bus';
+import { Look, sanitizeLook } from '../data/looks';
 
 export interface QuestProgress { progress: number; state: 'active' | 'ready' | 'done' }
 
@@ -16,6 +17,7 @@ export interface PlayerState {
   raceId: string;
   classId: string;
   tone: string;
+  look?: Look;                // aparência (cabelo, olhos, roupa…); ausente em saves antigos
   level: number;
   xp: number;
   gold: number;
@@ -142,13 +144,13 @@ export function equipBlock(p: PlayerState, i: Item): string | null {
 export let player: PlayerState;
 export const setPlayer = (p: PlayerState) => { player = p; };
 
-export function newPlayer(name: string, raceId: string, classId: string, tone: string): PlayerState {
+export function newPlayer(name: string, raceId: string, classId: string, tone: string, look?: Look): PlayerState {
   const cls = CLASS_BY_ID[classId];
   const weapon = findBase(cls.style, cls.startWeapon);
   const armor = starterArmor(cls.armor === 'cloth' ? 'cloth' : 'light');
   const offhand = cls.art.shield && !weapon.twoHanded ? starterShield() : undefined;
   const p: PlayerState = {
-    v: 3, name, raceId, classId, tone, level: 1, xp: 0, gold: 20, hp: 1, en: 1,
+    v: 3, name, raceId, classId, tone, ...(look ? { look: sanitizeLook(look) } : {}), level: 1, xp: 0, gold: 20, hp: 1, en: 1,
     items: [], equipped: { mainhand: weapon, body: armor, ...(offhand ? { offhand } : {}) }, potions: { heal: 3, energy: 1 }, quests: {}, kills: 0,
     pos: { x: 0, y: 0 }, story: { fragments: [], seen: {}, ended: false },
   };
@@ -197,6 +199,7 @@ export function loadSave(n = activeSlot): PlayerState | null {
     const race = RACE_BY_ID[p.raceId];
     if (!p.tone || !race.tones.includes(p.tone)) p.tone = race.tones[0]; // migra saves anteriores à nova arte
     delete p.hair;
+    if (p.look) p.look = sanitizeLook(p.look);
     migrateEquipment(p);
     if (!p.story) p.story = { fragments: [], seen: {}, ended: false };
     if (p.v < 2) { p.pos = { x: 0, y: 0 }; p.v = 2; }

@@ -1,5 +1,5 @@
 // Protocolo cliente <-> servidor (v3). Espelho de server/src/protocol.ts — mantenha os dois iguais.
-export const PROTOCOL = 5;
+export const PROTOCOL = 6;
 
 /** Dados públicos de um jogador (aparência e identificação). */
 export interface PlayerInfo {
@@ -9,6 +9,8 @@ export interface PlayerInfo {
   classId: string;
   tone: string;
   level: number;
+  /** aparência (cabelo, olhos…), validada por `sanitizeLook`; ausente = visual original */
+  look?: Record<string, unknown>;
 }
 
 /** Opções enviadas ao entrar na sala. */
@@ -19,6 +21,7 @@ export interface JoinOptions {
   classId: string;
   tone: string;
   level: number;
+  look?: Record<string, unknown>;
   /** token da conta (login em /api/login) */
   tok: string;
 }

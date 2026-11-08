@@ -3,7 +3,7 @@ import { Client } from 'colyseus.js';
 const URL = process.argv[2] ?? 'ws://localhost:2599'; const HTTP = URL.replace(/^ws/, 'http');
 const mk = async (name) => {
   const tok = (await (await fetch(HTTP + '/api/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ user: name + Math.random().toString(36).slice(2, 7), pass: 'senha123' }) })).json()).token;
-  const r = await new Client(URL).joinOrCreate('world', { v: 5, tok, name, raceId: 'human', classId: 'barbarian', tone: 'a', level: 3 });
+  const r = await new Client(URL).joinOrCreate('world', { v: 6, tok, name, raceId: 'human', classId: 'barbarian', tone: 'a', level: 3 });
   const log = []; r.onMessage('chat', (m) => log.push(`${m.ch}|${m.name}|${m.t}`)); ['welcome','ready','roster','online','mobs','snap','join','leave'].forEach((t) => r.onMessage(t, () => {}));
   return { r, log };
 };

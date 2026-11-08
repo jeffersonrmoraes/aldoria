@@ -1,6 +1,7 @@
 // Jogadores remotos: modelo 3D, nome e balão de fala, com interpolação suave.
 import * as THREE from 'three';
 import { SkinnedActor, playerActor } from '../art/actors';
+import type { Look } from '../data/looks';
 import { RemoteInfo } from './online';
 import { SnapMsg } from './protocol';
 
@@ -14,7 +15,7 @@ export class RemotePlayers {
   constructor(private scene: THREE.Scene, private labels: HTMLElement) {}
 
   private make(info: RemoteInfo): Remote {
-    const v = playerActor(info.raceId, info.classId, info.tone);
+    const v = playerActor(info.raceId, info.classId, info.tone, info.look as Look | undefined);
     const label = document.createElement('div');
     label.className = 'lb'; label.style.color = '#9fe3ff';
     const bubble = document.createElement('div');

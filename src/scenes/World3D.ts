@@ -199,7 +199,7 @@ export class World3D {
     if (this.hits(this.p.x, this.p.y, 5)) { this.p.x = this.world.start.x; this.p.y = this.world.start.y; } // save antigo: posição inválida no mapa novo
     setMapSource({ world: this.world, pos: () => (this.loc === this.over ? { x: this.p.x, y: this.p.y } : { ...this.overPos }) });
     reveal(this.p.x / TILE, this.p.y / TILE, 14);
-    this.pv = playerActor(player.raceId, player.classId, player.tone);
+    this.pv = playerActor(player.raceId, player.classId, player.tone, player.look);
     this.scene.add(this.pv.root);
     applyEquipment(this.pv as SkinnedActor, player.classId, player.equipped);
     this.pLabel = this.mkLabel(`${player.name}`, '#fff3c4');
@@ -500,7 +500,7 @@ export class World3D {
         if (m.id !== this.net?.selfId) this.remotes?.say(m.id, m.t);
       },
     });
-    void this.net.connect({ name: player.name, raceId: player.raceId, classId: player.classId, tone: player.tone, level: player.level, tok: getToken() });
+    void this.net.connect({ name: player.name, raceId: player.raceId, classId: player.classId, tone: player.tone, look: player.look as unknown as Record<string, unknown> | undefined, level: player.level, tok: getToken() });
   }
 
   // ---------- monstros do servidor (modo online) ----------

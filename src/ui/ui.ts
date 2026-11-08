@@ -12,6 +12,7 @@ import { CURRENT_CHAPTER } from '../chapters';
 import { DUNGEONS, EPILOGUE, FRAGMENTS, FRAGMENT_BY_ID, MAIN_QUESTS, SAGE_INTRO } from '../chapters/story1';
 import { frameIcon, itemFrameName } from '../art/art';
 import { portrait } from '../art/portrait';
+import { EYE_COLORS, EYE_SHAPES, FACES, HAIR_COLORS, HAIR_STYLES, HEADGEARS, Look, OUTFITS, Opt, defaultLook, heightScale, randomLook } from '../data/looks';
 import { bus } from '../game/bus';
 import { attrTree, attrPointsLeft, attrPointsTotal, buyNode, nodeState, respecCost, skillPointsLeft, skillPointsTotal, skillTree, Tree } from '../data/progression';
 import { ENCHANTS, ROMAN, enchantCost, enchLine } from '../data/enchants';
@@ -99,7 +100,7 @@ export function showMenu(start: () => void) {
   };
   onl.onchange = () => { setOnlineWanted(onl.checked); renderAcct(); };
   renderAcct();
-  saves.forEach((p, n) => { if (p) q<HTMLCanvasElement>(`[data-pc="${n}"]`, m).getContext('2d')!.drawImage(portrait(p.raceId, p.classId, p.tone, 'bust'), 0, 0); });
+  saves.forEach((p, n) => { if (p) q<HTMLCanvasElement>(`[data-pc="${n}"]`, m).getContext('2d')!.drawImage(portrait(p.raceId, p.classId, p.tone, 'bust', p.look), 0, 0); });
   qa<HTMLElement>('[data-play]', m).forEach((b) => (b.onclick = () => { const n = Number(b.dataset.play); const p = loadSave(n); if (p) { setSlot(n); setPlayer(p); start(); } }));
   qa<HTMLElement>('[data-new]', m).forEach((b) => (b.onclick = () => showCreate(start, Number(b.dataset.new))));
   qa<HTMLElement>('[data-del]', m).forEach((b) => (b.onclick = () => {
@@ -109,49 +110,98 @@ export function showMenu(start: () => void) {
   }));
 }
 
+type CTab = 'race' | 'class' | 'hair' | 'eyes' | 'outfit' | 'head' | 'face' | 'height' | 'skin';
+const CTABS: { id: CTab; icon: string; name: string }[] = [
+  { id: 'race', icon: '🧝', name: 'Raça' }, { id: 'class', icon: '⚔️', name: 'Classe' }, { id: 'hair', icon: '💇', name: 'Cabelo' },
+  { id: 'eyes', icon: '👁️', name: 'Olhos' }, { id: 'outfit', icon: '👕', name: 'Roupa' }, { id: 'head', icon: '🎩', name: 'Cabeça' },
+  { id: 'face', icon: '🧔', name: 'Rosto' }, { id: 'height', icon: '📏', name: 'Altura' }, { id: 'skin', icon: '🎨', name: 'Pele' },
+];
+const thumbCache = new Map<string, string>();
+
 function showCreate(start: () => void, slot: number) {
-  const st = { name: '', race: 'human', cls: 'fighter', tone: RACE_BY_ID['human'].tones[0] };
+  const st = { name: '', race: 'human', cls: 'fighter', tone: RACE_BY_ID['human'].tones[0], look: defaultLook(), tab: 'race' as CTab, rot: -0.45 };
   const screen = h('', 'screen');
   root.innerHTML = '';
   root.appendChild(screen);
 
+  const thumb = (patch: Partial<Look>, mode: 'bust' | 'full' = 'bust') => {
+    const key = [mode, st.race, st.cls, st.tone, JSON.stringify({ ...st.look, ...patch })].join('|');
+    let u = thumbCache.get(key);
+    if (!u) {
+      u = portrait(st.race, st.cls, st.tone, mode, { ...st.look, ...patch }, { size: 112, rot: mode === 'full' ? -0.45 : -0.2 }).toDataURL();
+      thumbCache.set(key, u);
+      if (thumbCache.size > 400) thumbCache.delete(thumbCache.keys().next().value as string);
+    }
+    return u;
+  };
+  const optGrid = <K extends keyof Look>(key: K, list: Opt[], extra: (o: Opt) => Partial<Look> = () => ({}), mode: 'bust' | 'full' = 'bust') =>
+    `<div class="ogrid">${list.map((o) => `<div class="opt ${st.look[key] === o.id ? 'sel' : ''}" data-k="${key}" data-v="${o.id}"><img src="${thumb({ [key]: o.id, ...extra(o) } as Partial<Look>, mode)}"><span>${o.name}</span></div>`).join('')}</div>`;
+  const swatches = (key: 'hairColor' | 'eyeColor', list: string[]) =>
+    `<div class="swatches big">${list.map((c) => `<div class="sw ${st.look[key] === c ? 'sel' : ''}" data-k="${key}" data-v="${c}" style="background:${c}"></div>`).join('')}</div>`;
+
+  const panel = (race: (typeof RACES)[number], cls: (typeof CLASSES)[number], d: ReturnType<typeof derive>) => {
+    switch (st.tab) {
+      case 'race': return `<h4>Raça</h4><div class="cards">${RACES.map((r) => `<div class="card ${r.id === st.race ? 'sel' : ''}" data-r="${r.id}">${r.name}<small>${Object.entries(r.bonus).length > 3 ? '+1 todos' : Object.entries(r.bonus).map(([k, v]) => '+' + v + ' ' + ABILITY_SHORT[k as keyof typeof ABILITY_SHORT]).join(' ')}</small></div>`).join('')}</div>
+        <div class="desc"><b style="color:#ffe9a8">${race.name}</b> — ${race.desc}<br><i>${race.trait}:</i> ${race.traitDesc}</div>`;
+      case 'class': return `<h4>Classe</h4><div class="cards">${CLASSES.map((c) => `<div class="card ${c.id === st.cls ? 'sel' : ''}" data-c="${c.id}">${c.name}<small>${c.role}</small></div>`).join('')}</div>
+        <div class="desc"><b style="color:#ffe9a8">${cls.name}</b> — ${cls.desc}<br>Dado de vida d${cls.hit} · Atributo principal: ${ABILITY_NAMES[cls.primary]} · Armadura: ${ARMOR_NAMES[cls.armor]}</div>
+        <div class="stats">${ABILITIES.map((a) => `<div>${ABILITY_SHORT[a]} <b>${d.ab[a]}</b> (${d.md[a] >= 0 ? '+' : ''}${d.md[a]})</div>`).join('')}</div>
+        <div class="desc">PV ${d.maxHp} · CA ${d.ac} · Energia ${d.maxEn}<br>${cls.skills.map((s) => `${s.icon} <b>${s.name}</b> (nv ${s.unlock})`).join(' · ')}</div>`;
+      case 'hair': return `<h4>Estilo do cabelo</h4>${optGrid('hair', HAIR_STYLES, () => ({ head: st.look.head === 'default' ? 'none' : st.look.head }))}<h4>Cor do cabelo</h4>${swatches('hairColor', HAIR_COLORS)}${st.look.head === 'default' && !['rogue', 'bard', 'ranger', 'bladesinger'].includes(cls.id) ? '<div class="desc">O chapéu/elmo da classe cobre o cabelo — escolha outro adereço na aba Cabeça para ver o penteado.</div>' : ''}`;
+      case 'eyes': return `<h4>Formato dos olhos</h4>${optGrid('eyes', EYE_SHAPES)}<h4>Cor dos olhos</h4>${swatches('eyeColor', EYE_COLORS)}`;
+      case 'outfit': return `<h4>Cor da roupa</h4>${optGrid('outfit', OUTFITS, () => ({}), 'full')}`;
+      case 'head': return `<h4>Adereço de cabeça</h4>${optGrid('head', HEADGEARS)}`;
+      case 'face': return `<h4>Rosto</h4>${optGrid('face', FACES)}<div class="desc">Barba, bigode e cavanhaque usam a cor do cabelo.</div>`;
+      case 'height': return `<h4>Altura</h4><input type="range" id="hgt" min="0" max="100" value="${Math.round(st.look.height * 100)}"><div class="desc" style="text-align:center">${st.look.height < 0.33 ? 'Baixo' : st.look.height > 0.66 ? 'Alto' : 'Mediano'} · ${Math.round(heightScale(st.look.height) * 100)}%</div>`;
+      case 'skin': return `<h4>${race.id === 'dragonborn' ? 'Cor das escamas' : 'Tom da pele'}</h4><div class="swatches big">${race.tones.map((c) => `<div class="sw ${c === st.tone ? 'sel' : ''}" data-h="${c}" style="background:${c}"></div>`).join('')}</div>`;
+    }
+  };
+
+  const drawPreview = () => {
+    const pv = q<HTMLCanvasElement>('#pv', screen);
+    const ctx = pv.getContext('2d')!;
+    ctx.clearRect(0, 0, pv.width, pv.height);
+    ctx.drawImage(portrait(st.race, st.cls, st.tone, 'full', st.look, { size: 420, rot: st.rot }), 0, 0);
+  };
+
   const render = () => {
     const race = RACE_BY_ID[st.race], cls = CLASS_BY_ID[st.cls];
     if (!race.tones.includes(st.tone)) st.tone = race.tones[0];
-    const tmp = newPlayer('x', st.race, st.cls, st.tone);
-    const d = derive(tmp);
-    screen.innerHTML = `<div class="create panel hit">
+    const d = derive(newPlayer('x', st.race, st.cls, st.tone));
+    screen.innerHTML = `<div class="create2 panel hit">
       <div class="ctitle">⚔ Forje seu herói <small>Espaço ${slot + 1}</small></div>
-      <div class="cleft">
-        <h3><span class="cn">I</span> Nome</h3><div class="nrow"><input type="text" id="nm" maxlength="14" placeholder="Nome do herói" value=""><button id="rnd" title="Nome aleatório">🎲</button></div>
-        <h3><span class="cn">II</span> Raça</h3><div class="cards">${RACES.map((r) => `<div class="card ${r.id === st.race ? 'sel' : ''}" data-r="${r.id}">${r.name}<small>${Object.entries(r.bonus).length > 3 ? '+1 todos' : Object.entries(r.bonus).map(([k, v]) => '+' + v + ' ' + ABILITY_SHORT[k as keyof typeof ABILITY_SHORT]).join(' ')}</small></div>`).join('')}</div>
-        <h3><span class="cn">III</span> Classe</h3><div class="cards">${CLASSES.map((c) => `<div class="card ${c.id === st.cls ? 'sel' : ''}" data-c="${c.id}">${c.name}<small>${c.role}</small></div>`).join('')}</div>
-        <h3><span class="cn">IV</span> ${race.id === 'dragonborn' ? 'Cor das escamas' : 'Tom da pele'}</h3><div class="swatches">${race.tones.map((c) => `<div class="sw ${c === st.tone ? 'sel' : ''}" data-h="${c}" style="background:${c}"></div>`).join('')}</div>
+      <div class="ctabs">
+        <div class="nrow"><input type="text" id="nm" maxlength="14" placeholder="Nome do herói"><button id="rnd" title="Nome aleatório">🎲</button></div>
+        ${CTABS.map((t) => `<button class="ctab ${t.id === st.tab ? 'sel' : ''}" data-t="${t.id}"><span>${t.icon}</span>${t.name}</button>`).join('')}
+        <button id="rall" class="ctab">🎲<span style="margin-left:6px">Aparência aleatória</span></button>
       </div>
-      <div class="preview">
-        <canvas id="pv" width="256" height="256"></canvas>
-        <div class="desc"><b style="color:#ffe9a8">${race.name}</b> — ${race.desc}<br><i>${race.trait}:</i> ${race.traitDesc}</div>
-        <div class="desc"><b style="color:#ffe9a8">${cls.name}</b> — ${cls.desc}<br>Dado de vida d${cls.hit} · Atributo principal: ${ABILITY_NAMES[cls.primary]} · Armadura: ${ARMOR_NAMES[cls.armor]}</div>
-        <div class="stats">${ABILITIES.map((a) => `<div>${ABILITY_SHORT[a]} <b>${d.ab[a]}</b> (${d.md[a] >= 0 ? '+' : ''}${d.md[a]})</div>`).join('')}</div>
-        <div class="desc">PV ${d.maxHp} · CA ${d.ac} · Energia ${d.maxEn}</div>
-        <div class="desc">${cls.skills.map((s) => `${s.icon} <b>${s.name}</b> (nv ${s.unlock})`).join('<br>')}${race.racial ? `<br>${race.racial.icon} <b>${race.racial.name}</b> (racial)` : ''}</div>
+      <div class="cmid">
+        <div class="stage"><canvas id="pv" width="420" height="420"></canvas>
+          <button class="arrow l" id="rl">◀</button><button class="arrow r" id="rr">▶</button></div>
         <div class="row" style="justify-content:center"><button id="back">Voltar</button><button id="go" class="primary">Começar Aventura</button></div>
-      </div></div>`;
+      </div>
+      <div class="cright">${panel(race, cls, d)}</div></div>`;
     const nm = q<HTMLInputElement>('#nm', screen);
     nm.value = st.name;
     nm.oninput = () => { st.name = nm.value; };
     const NAMES = ['Thorin', 'Elara', 'Borin', 'Lyra', 'Kael', 'Mira', 'Darian', 'Sylas', 'Brenna', 'Garrick', 'Tessa', 'Alaric', 'Nyx', 'Rurik', 'Isolde', 'Varek'];
     q('#rnd', screen).onclick = () => { st.name = NAMES[Math.floor(Math.random() * NAMES.length)]; nm.value = st.name; };
-    const pv = q<HTMLCanvasElement>('#pv', screen);
-    pv.getContext('2d')!.drawImage(portrait(st.race, st.cls, st.tone, 'full'), 0, 0);
+    q('#rall', screen).onclick = () => { st.look = randomLook(); st.tone = race.tones[Math.floor(Math.random() * race.tones.length)]; render(); };
+    q('#rl', screen).onclick = () => { st.rot -= 0.6; drawPreview(); };
+    q('#rr', screen).onclick = () => { st.rot += 0.6; drawPreview(); };
+    screen.querySelectorAll<HTMLElement>('[data-t]').forEach((e) => (e.onclick = () => { st.tab = e.dataset.t as CTab; render(); }));
     screen.querySelectorAll<HTMLElement>('[data-r]').forEach((e) => (e.onclick = () => { st.race = e.dataset.r!; render(); }));
     screen.querySelectorAll<HTMLElement>('[data-c]').forEach((e) => (e.onclick = () => { st.cls = e.dataset.c!; render(); }));
     screen.querySelectorAll<HTMLElement>('[data-h]').forEach((e) => (e.onclick = () => { st.tone = e.dataset.h!; render(); }));
+    screen.querySelectorAll<HTMLElement>('[data-k]').forEach((e) => (e.onclick = () => { (st.look as unknown as Record<string, string>)[e.dataset.k!] = e.dataset.v!; if (e.dataset.k === 'hair' && st.look.head === 'default') st.look.head = 'none'; render(); }));
+    const hg = screen.querySelector<HTMLInputElement>('#hgt');
+    if (hg) { hg.oninput = () => { st.look.height = Number(hg.value) / 100; drawPreview(); }; hg.onchange = () => render(); }
+    drawPreview();
     q('#back', screen).onclick = () => showMenu(start);
     q('#go', screen).onclick = () => {
       const name = st.name.trim() || 'Aventureiro';
       setSlot(slot);
-      setPlayer(newPlayer(name, st.race, st.cls, st.tone));
+      setPlayer(newPlayer(name, st.race, st.cls, st.tone, st.look));
       save();
       start();
     };
@@ -193,7 +243,7 @@ export function initHud() {
     <div id="toast" style="opacity:0"></div>
     <div id="win"></div>
   `));
-  q<HTMLCanvasElement>('#portrait').getContext('2d')!.drawImage(portrait(player.raceId, player.classId, player.tone, 'bust'), 0, 0);
+  q<HTMLCanvasElement>('#portrait').getContext('2d')!.drawImage(portrait(player.raceId, player.classId, player.tone, 'bust', player.look), 0, 0);
   q('#pname').textContent = player.name;
 
   const sk = q('#skills');
