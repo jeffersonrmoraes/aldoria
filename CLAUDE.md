@@ -20,6 +20,7 @@ Decisão do projeto: **não há lojas de classe**. Restam apenas (`SHOP_INFO` / 
 - **Ferreiro (Forja)**: espadas, machados, maças, martelos, arcos e bestas, armaduras leves/médias/pesadas, elmos, grevas, escudos, acessórios comuns; botão da **Forja** (criação com materiais).
 - **Sábio (Torre)**: cajados, varinhas, orbes, grimórios, tomos, vestes/chapéus/calças de tecido, acessórios mágicos; mesa de encantamento.
 - **Empório**: poções e amuletos/anéis.
+**Estoque adaptado à classe e atualizável**: `genShopStock(nível, loja, classe)` entrega completo o que a classe usa (estilo de arma, armadura que veste, escudo/foco/arma leve permitidos; Monge recebe manoplas/bastões/kama/bordão no Ferreiro) e só uma amostra do resto. Em toda loja o botão **🔄 Atualizar estoque** custa `SHOP_REFRESH_COST` = 75 de ouro e sorteia mercadorias novas; o estoque também muda sozinho ao subir de nível ou trocar de personagem (chave `nível:classe` em `stocks`).
 O jogador só vê o aviso "Sua classe não pode usar" quando o item não serve. Edifícios sem loja (taverna, quartel, igreja/capela, posto) continuam. Para uma nova loja: `BuildingKind` em `town.ts`, emblema em `buildings.ts`, interior em `interiors.ts`, NPC em `NPC_SPEC` e cor em `mapview.ts`.
 
 ## Menu e personagens

@@ -442,7 +442,9 @@ export function describeItem(i: Item): string {
 export const shopPrice = (it: Item) => Math.round(it.value * (it.rarity >= 4 ? 16 : 10));
 
 export type ShopId = 'smith' | 'sage' | 'general';
-interface ShopLine { slot: Slot; r: Rarity[]; style?: Style; only?: RegExp; types?: ArmorType[]; off?: OffKind[] }
+interface ShopLine { slot: Slot; r: Rarity[]; style?: Style; only?: RegExp; types?: ArmorType[]; off?: OffKind[]; monk?: boolean }
+/** Custo (ouro) de atualizar o estoque de qualquer loja. */
+export const SHOP_REFRESH_COST = 75;
 export interface ShopInfo { npc: string; quote: string; section: string; potions?: boolean; lines: ShopLine[] }
 const NORMAL_ACC = /(Prote|Vitalidade|Fúria|Botas Velozes)/;
 const MAGIC_ACC = /(Amuleto Arcano|Anel do Mago|Pingente de Cristal)/;
@@ -452,6 +454,7 @@ export const SHOP_INFO: Record<ShopId, ShopInfo> = {
     lines: [
       { slot: 'mainhand', style: 'melee', only: /^(adaga|espada|ma[çc]a|machad|martelo|montante|l[âa]mina)/i, r: [2, 3, 3, 3] },
       { slot: 'mainhand', style: 'ranged', only: /^(arco|besta)/i, r: [2, 3] },
+      { slot: 'mainhand', style: 'melee', only: /^(manopla|bast[ãa]o|kama|bord[ãa]o)/i, r: [2, 3], monk: true },
       { slot: 'body', types: ['light', 'medium', 'heavy'], r: [2, 3, 3] },
       { slot: 'head', types: ['light', 'medium', 'heavy'], r: [2, 3] },
       { slot: 'legs', types: ['light', 'medium', 'heavy'], r: [2, 3] },
@@ -479,15 +482,37 @@ export const SHOP_INFO: Record<ShopId, ShopInfo> = {
 };
 
 /** Estoque da loja: depende da especialidade da loja (não da classe de quem compra) e do nível do jogador. */
-export function genShopStock(level: number, shop: ShopId): Item[] {
+export function genShopStock(level: number, shop: ShopId, cls?: { id: string; style: Style; armor: ArmorType }): Item[] {
   const lv = Math.min(10, level + 1);
   const info = SHOP_INFO[shop];
-  const g = (l: ShopLine, rarity: Rarity) => genItem({ slot: l.slot, level: lv, style: l.style ?? 'melee', rarity, armorMax: 'heavy', off: l.off, only: l.only, types: l.types });
   const out: Item[] = [];
-  for (const l of info.lines) for (const r of l.r) out.push(g(l, r));
+  const mk = (l: ShopLine, rarity: Rarity, over: Partial<GenOpts> = {}) =>
+    genItem({ slot: l.slot, level: lv, style: l.style ?? 'melee', rarity, armorMax: 'heavy', off: l.off, only: l.only, types: l.types, ...over });
+  if (!cls) {
+    for (const l of info.lines) for (const r of l.r) out.push(mk(l, r));
+  } else {
+    // loja adaptada à classe de quem compra: o que a classe usa bem vem completo; o resto, só uma amostra
+    const off = allowedOff(cls);
+    for (const l of info.lines) {
+      if (l.monk && cls.id !== 'monk') continue;
+      if (l.monk) { for (const r of l.r) out.push(mk(l, r)); continue; }
+      if (l.slot === 'mainhand') {
+        const fits = (l.style ?? 'melee') === cls.style && !(cls.id === 'monk' && cls.style === 'melee');
+        l.r.forEach((r, k) => { if (fits || k === 0) out.push(mk(l, r, fits ? { cid: cls.id } : {})); });
+      } else if (l.slot === 'body' || l.slot === 'head' || l.slot === 'legs') {
+        const types = (l.types ?? ['cloth', 'light', 'medium', 'heavy']).filter((t) => ARMOR_RANK[t] <= ARMOR_RANK[cls.armor]);
+        if (types.length) for (const r of l.r) out.push(mk(l, r, { types }));
+        else out.push(mk(l, l.r[0]));
+      } else if (l.slot === 'offhand') {
+        const ok = (l.off ?? []).filter((k) => off.includes(k));
+        if (ok.length) for (const r of l.r) out.push(mk(l, r, { off: ok }));
+        else out.push(mk(l, l.r[0]));
+      } else for (const r of l.r) out.push(mk(l, r));
+    }
+  }
   if (level >= 8 && shop !== 'general') {
     const seen = new Set<Slot>();
-    for (const l of info.lines) if (!seen.has(l.slot) && l.slot !== 'accessory') { seen.add(l.slot); out.push(g(l, 4)); }
+    for (const l of info.lines) if (!seen.has(l.slot) && l.slot !== 'accessory' && !(cls && l.monk && cls.id !== 'monk')) { seen.add(l.slot); out.push(mk(l, 4)); }
   }
   return out;
 }

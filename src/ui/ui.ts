@@ -2,7 +2,7 @@ import { CLASSES, CLASS_BY_ID, ARMOR_NAMES } from '../data/classes';
 import { RACES, RACE_BY_ID } from '../data/races';
 import { ABILITIES, ABILITY_NAMES, ABILITY_SHORT, MAX_LEVEL } from '../data/rules';
 import { BAG_SIZE, PlayerState, addItem, derive, deleteSave, equipBlock, equipWarn, gainXp, listSaves, loadSave, newPlayer, weaponPenalty, player, save, setPlayer, setSlot } from '../game/state';
-import { Craftable, Item, Rarity, STARTER_WEAPONS, craftItem, craftables, findBase, itemValue, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
+import { Craftable, Item, Rarity, STARTER_WEAPONS, craftItem, craftables, findBase, itemValue, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, SHOP_REFRESH_COST, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
 import { QUESTS, ZONES, ZoneDef, zoneAt } from '../chapters/chapter1';
 import { audioCfg, setAudio, sfx } from '../game/audio';
 import { BUILDINGS, townOf } from '../chapters/town';
@@ -689,8 +689,9 @@ const stocks: Record<string, { key: string; items: Item[] }> = {};
 function shopWindow(kind: ShopId) {
   const reopen = () => shopWindow(kind);
   const info = SHOP_INFO[kind];
-  const key = String(player.level);
-  if (!stocks[kind] || stocks[kind].key !== key) stocks[kind] = { key, items: genShopStock(player.level, kind) };
+  const key = `${player.level}:${player.classId}`;
+  const cdef = CLASS_BY_ID[player.classId];
+  if (!stocks[kind] || stocks[kind].key !== key) stocks[kind] = { key, items: genShopStock(player.level, kind, cdef) };
   const shopStock = stocks[kind].items;
   const cha = derive(player).ab.cha;
   const pp = potionPrice(player.level, cha);
@@ -712,10 +713,17 @@ function shopWindow(kind: ShopId) {
     <div style="font-size:13px;margin-bottom:6px">${info.quote}</div>
     ${kind === 'smith' ? '<div class="row"><button id="open-forge" class="primary">⚒ Forja — criar armas e armaduras com materiais</button></div>' : ''}
     ${info.potions ? `<div class="row"><button data-b="heal">Poção de Cura 🪙 ${pp} (você tem ${player.potions.heal})</button><button data-b="energy">Poção de Energia 🪙 ${pp} (${player.potions.energy})</button></div>` : ''}
-    <h3 style="margin-top:12px">${info.section} <span style="font-size:11px;color:#a79cc4">(raros, épicos e lendários — preços de dragão)</span></h3>${rare}
+    <h3 style="margin-top:12px">${info.section} <span style="font-size:11px;color:#a79cc4">(raros, épicos e lendários — preços de dragão)</span></h3>
+    <div class="row"><button id="refresh-stock" ${player.gold >= SHOP_REFRESH_COST ? '' : 'style="opacity:.55"'}>🔄 Atualizar estoque 🪙 ${SHOP_REFRESH_COST} <span style="font-size:11px;color:#a79cc4">(novas mercadorias para ${cdef.name})</span></button></div>${rare}
     <h3 style="margin-top:12px">Vender <span style="font-size:11px;color:#a79cc4">(⭐ o dono paga bem mais pelas mercadorias do próprio ofício; outros itens, só o preço de sucata)</span></h3>${sell}
     ${player.items.length ? '<div class="row"><button id="sell-common">Vender itens comuns</button><button id="sell-special">Vender tudo o que esta loja valoriza (⭐)</button></div>' : ''}`);
   bindClose(w);
+  q('#refresh-stock', w).onclick = () => {
+    if (player.gold < SHOP_REFRESH_COST) { onLog('Ouro insuficiente para atualizar o estoque.', '#ff8a8a'); return; }
+    player.gold -= SHOP_REFRESH_COST;
+    stocks[kind] = { key, items: genShopStock(player.level, kind, cdef) };
+    onLog(`${info.npc} trouxe mercadorias novas (-${SHOP_REFRESH_COST} de ouro).`, '#ffe9a8'); sfx.buy(); save(); reopen();
+  };
   const of = w.querySelector<HTMLElement>('#open-forge');
   if (of) of.onclick = () => forgeWindow();
   w.querySelectorAll<HTMLElement>('[data-b]').forEach((b) => (b.onclick = () => {
