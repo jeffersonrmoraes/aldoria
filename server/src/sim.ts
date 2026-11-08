@@ -282,7 +282,7 @@ export class WorldSim {
     const list = [...players]; this.index(list);
     if (!this.ready(p)) return;
     const slot = typeof i === 'number' ? i | 0 : -1;
-    const sk: SkillDef | undefined = slot >= 0 && slot < 4 ? skillAt(p.sheet!, slot) : undefined;
+    const sk: SkillDef | undefined = slot >= 0 && slot < 6 ? skillAt(p.sheet!, slot) : undefined;
     if (!sk) return;
     const now = Date.now(), d = p.d!;
     if (p.sheet!.level < sk.unlock) return;

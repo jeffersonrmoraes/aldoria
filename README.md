@@ -9,7 +9,7 @@
 Mundo 2.5D low-poly em estilo "MMO clássico" (câmera inclinada, personagens 3D animados), combate em tempo real, regras do D&D 5e (SRD 5.1, licença CC-BY-4.0).
 Stack: **Three.js + TypeScript + Vite**. Personagens e esqueletos: modelos 3D animados do [KayKit](https://www.kaylousberg.com) (**CC0**), reduzidos para ~130 KB cada; terreno, árvores, casas, rato, lobo e gosma são gerados por código. O jogo inteiro é um único HTML de ~2,2 MB (~850 KB gzip). Veja `CREDITS.md`.
 
-Controles: WASD/setas ou clique para andar · clique no monstro para atacar · 1–4 habilidades · H/J poções · E falar com NPC · botão direito arrastando gira a câmera · roda do mouse dá zoom.
+Controles: WASD/setas ou clique para andar · clique no monstro para atacar · 1–4 habilidades da classe · 5–6 habilidades da arma · H/J poções · E falar com NPC · botão direito arrastando gira a câmera · roda do mouse dá zoom.
 
 ## Rodar
 

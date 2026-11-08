@@ -4,12 +4,15 @@ import { Buff, SkillDef, d20, roll } from '../data/rules';
 import { CLASS_BY_ID } from '../data/classes';
 import { RACE_BY_ID } from '../data/races';
 import { skillMod } from '../data/progression';
+import { WEAPON_SKILLS, weaponFamily } from '../data/weaponskills';
 import { MobDef } from '../data/monsters';
 import { Derived, PlayerState } from './state';
 
 /** Habilidade com os bônus da árvore de habilidades aplicados (dano, recarga, custo). */
 export function skillAt(p: PlayerState, i: number): SkillDef | undefined {
-  if (i >= 3) return RACE_BY_ID[p.raceId].racial;
+  if (i === 3) return RACE_BY_ID[p.raceId].racial;
+  if (i === 4 || i === 5) return WEAPON_SKILLS[weaponFamily(p.equipped.mainhand?.name)][i - 4];   // habilidades da arma empunhada
+  if (i < 0 || i > 5) return undefined;
   const base = CLASS_BY_ID[p.classId].skills[i];
   if (!base) return undefined;
   const m = skillMod(p, i);

@@ -255,8 +255,8 @@ export function initHud() {
 
   const sk = q('#skills');
   sk.innerHTML = '';
-  for (let i = 0; i < 4; i++) {
-    const s = h(`<b>${i + 1}</b><span class="ic"></span><em></em><div class="cd"></div>`, 'slot');
+  for (let i = 0; i < 6; i++) {
+    const s = h(`<b>${i + 1}</b><span class="ic"></span><em></em><div class="cd"></div>`, i >= 4 ? 'slot wslot' : 'slot');
     s.dataset.i = String(i);
     s.onclick = () => bus.emit('skill', i);
     sk.appendChild(s);
@@ -605,7 +605,8 @@ function renderHelp() {
     <b>Clique em um monstro</b> — selecionar e atacar automaticamente<br>
     <b>E</b> ou clique — falar com NPCs e usar portais de masmorra · <b>L</b> — Diário (história e fragmentos) · <b>M</b> — Mapa (global e da cidade; revela conforme você explora)<br>
     <b>Botão direito + arrastar</b> — girar a câmera · <b>Roda do mouse</b> — zoom<br>
-    <b>1 2 3</b> — habilidades da classe (desbloqueiam nos níveis 1, 3 e 5)<br>
+    <b>1 2 3</b> — habilidades da classe (desbloqueiam nos níveis 1, 3 e 5) · <b>4</b> — habilidade racial<br>
+    <b>5 6</b> — habilidades da <b>arma</b> empunhada (2 por tipo de arma; trocam ao trocar de arma; a 6ª abre no nível 4)<br>
     <b>4</b> — habilidade racial (Draconato e Tiferino)<br>
     <b>H / J</b> — poção de cura / de energia<br>
     <b>E</b> — falar com NPCs perto de você · <b>I</b> inventário · <b>C</b> personagem<br><br>
