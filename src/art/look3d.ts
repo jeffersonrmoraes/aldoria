@@ -8,7 +8,7 @@ import { Look, OUTFIT_TINT } from '../data/looks';
 
 const V3 = THREE.Vector3;
 const SKULL: Record<string, { x: number; y: number; z: number }> = {
-  Knight: { x: 0.42, y: 0.4, z: 0.42 }, Mage: { x: 0.36, y: 0.34, z: 0.36 }, Rogue: { x: 0.42, y: 0.4, z: 0.42 }, Barbarian: { x: 0.36, y: 0.37, z: 0.36 },
+  Knight: { x: 0.42, y: 0.46, z: 0.42 }, Mage: { x: 0.36, y: 0.39, z: 0.36 }, Rogue: { x: 0.42, y: 0.45, z: 0.42 }, Barbarian: { x: 0.36, y: 0.37, z: 0.36 },
 };   // semi-eixos do crânio liso (fração do tamanho da caixa da cabeça)
 const HAT = /(Hat|Helmet)$/;
 const mat = (c: string, e = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0, emissive: e ? c : '#000', emissiveIntensity: e, side: THREE.DoubleSide });
@@ -357,7 +357,7 @@ function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3
   }
   if (ns) skinAvg.multiplyScalar(1 / ns); else skinAvg.copy(skinC);
   const showOld = look.oldHair === 'model';           // cabelo original do modelo (opcional)
-  const flat = look.hair === 'none' && !showOld;     // careca: alisa o topete/volume do cabelo do modelo
+  const flat = look.hair === 'none' && !showOld && a.spec.model !== 'Barbarian';   // o Bárbaro/Monge já tem a cabeça lisa do modelo     // careca: alisa o topete/volume do cabelo do modelo
   const flatIdx: number[] = [], flatW: THREE.Vector3[] = [];
   const noBeard = a.spec.model === 'Barbarian' && look.face !== 'beard';
   for (let i = 0; i < pos.count; i++) {
@@ -365,7 +365,7 @@ function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3
     const px = Math.min(tex.w - 1, Math.floor(uv.getX(i) * tex.w)), py = Math.min(tex.h - 1, Math.floor(uv.getY(i) * tex.h));
     const k = (py * tex.w + px) * 4, r = tex.d[k], g = tex.d[k + 1], b = tex.d[k + 2];
     const skinTex = r >= 200 && g >= 150 && b >= 105 && r - b >= 45;
-    const skin = skinTex && !((a.spec.model === 'Knight' || a.spec.model === 'Barbarian') && t.y > E + 0.1 * u);       // cabelo loiro tem cor de pele: acima da testa conta como cabelo
+    const skin = skinTex && !(a.spec.model === 'Knight' && t.y > E + 0.1 * u);       // cabelo loiro tem cor de pele: acima da testa conta como cabelo
     const inEye = !skin && t.y > E - 0.075 * u && t.y < E + 0.05 * u && t.z > c.z && Math.abs(t.x - c.x) < 0.3 * u;
     const metal = b >= g && g >= r && r + g + b > 400;
     const cloth = b > r + 25;
@@ -391,7 +391,7 @@ function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3
     const kmap = new Map<string, number>();
     flatIdx.forEach((i, n) => {
       const o = flatW[n].clone().sub(cw);
-      const m = Math.hypot(o.x / rx, o.y / ry, o.z / rz);
+      const m = (Math.abs(o.x / rx) ** 3 + Math.abs(o.y / ry) ** 3 + Math.abs(o.z / rz) ** 3) ** (1 / 3);   // superelipsoide: crânio arredondado meio quadrado, como o do Monge
       if (m > 1) { const k0 = key(i); kmap.set(k0, Math.min(kmap.get(k0) ?? 1, 1 / m)); }
     });
     for (let i = 0; i < pos.count; i++) {      // vértices duplicados (costuras de UV) andam juntos, senão abrem rachaduras
