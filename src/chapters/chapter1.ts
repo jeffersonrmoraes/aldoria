@@ -38,10 +38,10 @@ import { TILE, W, H, CX, CY, TOWN_R, FOUNTAIN } from './mapdims';
 export { TILE, W, H, CX, CY };
 
 // índices do tileset = frames do atlas gerado (ver tools/build_art.py)
-export const T = F;
+export const T = { ...F, swamp: 100, swamp_tree: 101, dune: 102, dune2: 103, cactus: 104, sandrock: 105 };
 export const BLOCKED: number[] = [
   F.water, F.tree, F.tree2, F.bush, F.ftree, F.ftree2, F.red_rock, F.red_tree,
-  F.grave, F.grave2, F.roof_l, F.roof, F.roof_r, F.wall_l, F.wall, F.wall_w, F.wall_r,
+  F.grave, F.grave2, 101, 104, 105, F.roof_l, F.roof, F.roof_r, F.wall_l, F.wall, F.wall_w, F.wall_r,
 ];
 
 const GATE = 2; // portões: meia-largura em tiles
@@ -51,18 +51,24 @@ export const ZONES: Record<string, ZoneDef> = {
   v_floresta: { id: 'v_floresta', name: 'Passo da Clareira', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'forest' },
   v_cripta: { id: 'v_cripta', name: 'Vigília dos Sinos', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'crypt' },
   v_orcs: { id: 'v_orcs', name: 'Forte Cinzaferro', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'orcs' },
+  v_pantano: { id: 'v_pantano', name: 'Palafitas do Brejo', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'swamp' },
+  v_deserto: { id: 'v_deserto', name: 'Oásis do Escaravelho', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'desert' },
   v_ogro: { id: 'v_ogro', name: 'Último Refúgio', levels: 'Zona segura', mobs: [], count: 0, safe: true, biome: 'ogre' },
-  fields: { id: 'fields', name: 'Campos Verdes', levels: 'Nível 1–2', mobs: [['rat', 28], ['kobold', 25], ['slime', 17], ['jackal', 15], ['bandit', 15]], count: 270 },
-  forest: { id: 'forest', name: 'Floresta Sombria', levels: 'Nível 3–4', mobs: [['goblin', 40], ['wolf', 30], ['worg', 15], ['hobgoblin', 15]], count: 235 },
-  crypt: { id: 'crypt', name: 'Cripta Esquecida', levels: 'Nível 5–6', mobs: [['skeleton', 35], ['zombie', 25], ['ghoul', 20], ['shadow', 20]], count: 180 },
-  orcs: { id: 'orcs', name: 'Colinas dos Orcs', levels: 'Nível 7–8', mobs: [['orc', 35], ['bugbear', 25], ['orcshaman', 15], ['gnoll', 25]], count: 180 },
-  ogre: { id: 'ogre', name: 'Covil do Ogro', levels: 'Nível 9–10', mobs: [['ogre', 60], ['troll', 40]], count: 100 },
+  fields: { id: 'fields', name: 'Campos Verdes', levels: 'Nível 1–2', mobs: [['rat', 28], ['kobold', 25], ['slime', 17], ['jackal', 15], ['bandit', 15]], count: 405 },
+  forest: { id: 'forest', name: 'Floresta Sombria', levels: 'Nível 3–4', mobs: [['goblin', 40], ['wolf', 30], ['worg', 15], ['hobgoblin', 15]], count: 350 },
+  crypt: { id: 'crypt', name: 'Cripta Esquecida', levels: 'Nível 5–6', mobs: [['skeleton', 35], ['zombie', 25], ['ghoul', 20], ['shadow', 20]], count: 270 },
+  orcs: { id: 'orcs', name: 'Colinas dos Orcs', levels: 'Nível 7–8', mobs: [['orc', 35], ['bugbear', 25], ['orcshaman', 15], ['gnoll', 25]], count: 270 },
+  ogre: { id: 'ogre', name: 'Covil do Ogro', levels: 'Nível 9–10', mobs: [['ogre', 60], ['troll', 40]], count: 150 },
+  swamp: { id: 'swamp', name: 'Pântano Abandonado', levels: 'Nível 11–13', mobs: [['lizardfolk', 28], ['giantfrog', 24], ['crocodile', 16], ['willowisp', 12], ['shambler', 12], ['greenhag', 8]], count: 200 },
+  desert: { id: 'desert', name: 'Deserto de Anauroch', levels: 'Nível 14–16', mobs: [['scorpion', 28], ['vulture', 24], ['dustmephit', 18], ['mummy', 20], ['wight', 10]], count: 200 },
 };
 
 export function zoneAt(tx: number, ty: number): string {
   for (const v of VILLAGES) if ((tx - v.cx) ** 2 + (ty - v.cy) ** 2 <= v.r * v.r) return v.zone;
   if ((tx - CX) ** 2 + (ty - CY) ** 2 <= TOWN_R * TOWN_R) return 'town';
   const fx = tx / W, fy = ty / H;
+  if (fx <= 0.3 && fy < 0.3) return 'swamp';
+  if (fx >= 0.7 && fy >= 0.7) return 'desert';
   if (fy < 0.27 && fx > 0.3 && fx < 0.7) return 'crypt';
   if (fx >= 0.7) return 'orcs';
   if (fx <= 0.3) return 'forest';
@@ -91,6 +97,12 @@ export const QUESTS: Quest[] = [
     find: { name: 'Pedra da Alma', icon: '🔮', color: 0x7affd0, zone: 'any', hint: 'qualquer região selvagem' } },
   { id: 'f7', title: 'Selos Esquecidos', desc: 'Selos menores da Ordem da Aurora ainda brilham em ruínas espalhadas por Aldoria. Recolha 10.', mob: '', count: 10, minLevel: 16, xp: 8000, gold: 1800, item: true,
     find: { name: 'Selo Esquecido', icon: '📿', color: 0xffd23f, zone: 'any', hint: 'qualquer região selvagem' } },
+  { id: 'f8', title: 'Orquídeas Fantasmas', desc: 'Herbalistas das Palafitas pagam bem por orquídeas fantasmas, que brilham de verde no Pântano Abandonado. Colha 6.', mob: '', count: 6, minLevel: 11, xp: 2600, gold: 600, potion: 'energy',
+    find: { name: 'Orquídea Fantasma', icon: '🌺', color: 0x8affb8, zone: 'swamp', hint: 'Pântano Abandonado' } },
+  { id: 'f9', title: 'Relíquias das Dunas', desc: 'Caravaneiros juram que relíquias de um império esquecido jazem sob as areias do Deserto de Anauroch. Recupere 6.', mob: '', count: 6, minLevel: 14, xp: 5200, gold: 1200, item: true,
+    find: { name: 'Relíquia Dourada', icon: '🏺', color: 0xffc94a, zone: 'desert', hint: 'Deserto de Anauroch' } },
+  { id: 'q7', title: 'Senhores do Brejo', desc: 'Homens-lagarto dominam o Pântano Abandonado e atacam as Palafitas. Derrote 10.', mob: 'lizardfolk', count: 10, minLevel: 11, xp: 2800, gold: 700, item: true },
+  { id: 'q8', title: 'A Maldição das Dunas', desc: 'Múmias despertaram nas areias do Deserto de Anauroch. Destrua 10.', mob: 'mummy', count: 10, minLevel: 14, xp: 5600, gold: 1300, item: true },
   { id: 'q6', title: 'A Queda do Ogro Ancião', desc: 'Gnarlmaw lidera os ogros no Covil ao sul. Derrote-o (recomendado em grupo).', mob: 'gnarlmaw', count: 1, minLevel: 9, xp: 1400, gold: 500, item: true },
 ];
 
@@ -125,9 +137,11 @@ export function generateWorld(): WorldData {
     crypt: [[[T.grave, T.grave2], 0.07]],
     orcs: [[[T.red_rock], 0.06], [[T.red_tree], 0.02]],
     ogre: [[[T.red_rock], 0.05], [[T.red_tree], 0.07]],
+    swamp: [[[T.swamp_tree], 0.13]],
+    desert: [[[T.cactus], 0.012], [[T.sandrock], 0.028]],
   };
   const borderOf = (z: string) =>
-    z === 'forest' ? pick([T.ftree, T.ftree2]) : z === 'crypt' ? pick([T.grave, T.grave2]) : z === 'orcs' || z === 'ogre' ? pick([T.red_tree, T.red_rock]) : pick([T.tree, T.tree2]);
+    z === 'swamp' ? T.swamp_tree : z === 'desert' ? T.sandrock : z === 'forest' ? pick([T.ftree, T.ftree2]) : z === 'crypt' ? pick([T.grave, T.grave2]) : z === 'orcs' || z === 'ogre' ? pick([T.red_tree, T.red_rock]) : pick([T.tree, T.tree2]);
   for (let y = 0; y < H; y++) {
     const row: number[] = [];
     for (let x = 0; x < W; x++) {
@@ -138,6 +152,8 @@ export function generateWorld(): WorldData {
       if (zg === 'town' || zg === 'fields') t = rnd() < 0.07 ? T.flowers : rnd() < 0.5 ? T.grass : T.grass2;
       else if (zg === 'forest') t = T.forest;
       else if (zg === 'crypt') t = T.stone;
+      else if (zg === 'swamp') t = T.swamp;
+      else if (zg === 'desert') t = rnd() < 0.5 ? T.dune : T.dune2;
       else t = T.red;
       if (z !== 'town' && obstacle[z]) for (const [ot, p] of obstacle[z]) if (rnd() < p) { t = pick(ot); break; }
       row.push(t);
@@ -145,11 +161,11 @@ export function generateWorld(): WorldData {
     tiles.push(row);
   }
   // lagos: um na floresta e um açude nos campos
-  for (const [lx, ly, rx, ry] of [[59, 235, 27, 19], [156, 212, 15, 10], [330, 60, 12, 8], [90, 40, 10, 7]]) {
+  for (const [lx, ly, rx, ry] of [[88, 352, 38, 27], [234, 318, 21, 14], [495, 90, 17, 11], [135, 60, 14, 10], [60, 105, 11, 7], [165, 105, 13, 8], [45, 35, 8, 5], [440, 345, 9, 6]]) {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const dx = (x - lx) / rx, dy = (y - ly) / ry;
       if (dx * dx + dy * dy <= 1) tiles[y][x] = T.water;
-      else if (dx * dx + dy * dy <= 1.3 && !BLOCKED.includes(tiles[y][x])) tiles[y][x] = T.sand;
+      else if (dx * dx + dy * dy <= 1.3 && !BLOCKED.includes(tiles[y][x])) tiles[y][x] = zoneAt(x, y) === 'swamp' ? T.swamp : T.sand;
     }
   }
   // borda do mapa
@@ -161,6 +177,10 @@ export function generateWorld(): WorldData {
   const carve = (x: number, y: number) => { if (x > 1 && y > 1 && x < W - 2 && y < H - 2) tiles[y][x] = dirtTile(); };
   for (let x = 2; x < W - 2; x++) for (let d = -1; d <= 1; d++) carve(x, CY + d);
   for (let y = 2; y < H - 2; y++) for (let d = -1; d <= 1; d++) carve(CX + d, y);
+  // estradas de terra ligando as vilas dos cantos (pântano e deserto) à estrada principal
+  for (const [rx, ry0, ry1] of [[110, 68, CY], [500, CY, 382]] as [number, number, number][]) {
+    for (let y = Math.min(ry0, ry1); y <= Math.max(ry0, ry1); y++) for (let d = -1; d <= 1; d++) carve(rx + d, y);
+  }
   // vila circular: igreja ao centro, praça com fonte na frente, anel de ruas de pedra, edifícios espalhados e muralha
   const paved = () => (rnd() < 0.8 ? T.plaza : pick([T.plaza2, T.plaza3]));
   const dist = (x: number, y: number) => Math.hypot(x - CX, y - CY);
@@ -275,7 +295,7 @@ export function generateWorld(): WorldData {
     }
   }
   // covil do chefe
-  const lair = { x: CX, y: 262 };
+  const lair = { x: CX, y: 393 };
   for (let y = lair.y - 11; y <= lair.y + 11; y++) for (let x = lair.x - 11; x <= lair.x + 11; x++) {
     const d = Math.hypot(x - lair.x, y - lair.y);
     if (d <= 11 && x > 1 && y > 1 && x < W - 2 && y < H - 2) tiles[y][x] = rnd() < 0.05 ? T.bones : T.red;
@@ -287,7 +307,7 @@ export function generateWorld(): WorldData {
     }
     // limpa obstáculos ao redor do pátio
     for (let y = d.entrance.ty - 3; y <= d.entrance.ty + 3; y++) for (let x = d.entrance.tx - 3; x <= d.entrance.tx + 3; x++) {
-      if (BLOCKED.includes(tiles[y][x]) && tiles[y][x] !== T.water) tiles[y][x] = zoneAt(x, y) === 'forest' ? T.forest : zoneAt(x, y) === 'crypt' ? T.stone : zoneAt(x, y) === 'orcs' || zoneAt(x, y) === 'ogre' ? T.red : T.grass;
+      if (BLOCKED.includes(tiles[y][x]) && tiles[y][x] !== T.water) tiles[y][x] = zoneAt(x, y) === 'swamp' ? T.swamp : zoneAt(x, y) === 'desert' ? T.dune : zoneAt(x, y) === 'forest' ? T.forest : zoneAt(x, y) === 'crypt' ? T.stone : zoneAt(x, y) === 'orcs' || zoneAt(x, y) === 'ogre' ? T.red : T.grass;
     }
   }
   // pontos de spawn
@@ -317,7 +337,7 @@ export function generateWorld(): WorldData {
   spawns.push({ mob: 'gnarlmaw', x: lair.x * TILE + 8, y: lair.y * TILE + 8, boss: true });
   // objetos das missões de achar coisas (gerador próprio: não altera a ordem dos spawns)
   const finds: WorldData['finds'] = [];
-  const wild = ['fields', 'forest', 'crypt', 'orcs', 'ogre'];
+  const wild = ['fields', 'forest', 'crypt', 'orcs', 'ogre', 'swamp', 'desert'];
   for (const fq of QUESTS) {
     if (!fq.find) continue;
     const fr = mulberry32(9100 + fq.id.charCodeAt(1) * 31);

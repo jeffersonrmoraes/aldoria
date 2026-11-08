@@ -34,31 +34,31 @@ export const FRAGMENT_BY_ID: Record<string, Fragment> = Object.fromEntries(FRAGM
 const dark = { portal: '#8a5cff' };
 export const DUNGEONS: DungeonDef[] = [
   {
-    id: 'moinho', name: 'Catacumbas do Moinho Velho', levels: 'Nível 2–3', minLevel: 2, zone: 'fields', entrance: { tx: 251, ty: 212 },
+    id: 'moinho', name: 'Catacumbas do Moinho Velho', levels: 'Nível 2–3', minLevel: 2, zone: 'fields', entrance: { tx: 377, ty: 318 },
     seed: 11, rooms: 4, perRoom: [3, 4], mobs: [['rat', 60], ['slime', 25], ['kobold', 15]], boss: 'ratking',
     theme: { floor: '#6b6258', wall: '#4b443c', sky: '#1a1612', fog: '#241d17', light: '#ffb86a', ambient: 0.6, ...dark },
     intro: 'Sob o moinho abandonado, túneis úmidos ecoam com guinchos. Algo comanda os ratos.',
   },
   {
-    id: 'goblin', name: 'Toca do Rei Goblin', levels: 'Nível 4–5', minLevel: 4, zone: 'forest', entrance: { tx: 69, ty: 127 },
+    id: 'goblin', name: 'Toca do Rei Goblin', levels: 'Nível 4–5', minLevel: 4, zone: 'forest', entrance: { tx: 104, ty: 190 },
     seed: 23, rooms: 5, perRoom: [3, 5], mobs: [['goblin', 55], ['wolf', 30], ['kobold', 15]], boss: 'goblinking',
     theme: { floor: '#5a5a3c', wall: '#3a3a26', sky: '#10160e', fog: '#1a2314', light: '#ffd070', ambient: 0.55, ...dark },
     intro: 'Cavernas cobertas de musgo, fogueiras e ossos. Um trono de sucata aguarda no fundo.',
   },
   {
-    id: 'cripta', name: 'Cripta dos Condenados', levels: 'Nível 6–7', minLevel: 6, zone: 'crypt', entrance: { tx: 229, ty: 42 },
+    id: 'cripta', name: 'Cripta dos Condenados', levels: 'Nível 6–7', minLevel: 6, zone: 'crypt', entrance: { tx: 344, ty: 63 },
     seed: 37, rooms: 5, perRoom: [3, 5], mobs: [['skeleton', 50], ['zombie', 30], ['cultist', 20]], boss: 'skelknight',
     theme: { floor: '#4d4f66', wall: '#33354a', sky: '#0d0e1a', fog: '#15162a', light: '#9fb4ff', ambient: 0.55, ...dark },
     intro: 'Jazigos violados e brasões da Ordem da Aurora. Um cavaleiro ergue-se onde deveria repousar.',
   },
   {
-    id: 'fortaleza', name: 'Fortaleza Quebra-Osso', levels: 'Nível 8–9', minLevel: 8, zone: 'orcs', entrance: { tx: 343, ty: 142 },
+    id: 'fortaleza', name: 'Fortaleza Quebra-Osso', levels: 'Nível 8–9', minLevel: 8, zone: 'orcs', entrance: { tx: 515, ty: 213 },
     seed: 41, rooms: 6, perRoom: [3, 5], mobs: [['orc', 55], ['bugbear', 30], ['cultist', 15]], boss: 'warlord',
     theme: { floor: '#6a4a3c', wall: '#442d26', sky: '#1a0f0c', fog: '#2a1812', light: '#ff9a5a', ambient: 0.6, ...dark },
     intro: 'Muralhas de ossos e estandartes rasgados. Tambores de guerra batem sob a pedra.',
   },
   {
-    id: 'camara', name: 'Câmara do Selo Partido', levels: 'Nível 10', minLevel: 9, zone: 'ogre', entrance: { tx: 271, ty: 269 }, needs: 4,
+    id: 'camara', name: 'Câmara do Selo Partido', levels: 'Nível 10', minLevel: 9, zone: 'ogre', entrance: { tx: 407, ty: 404 }, needs: 4,
     seed: 53, rooms: 6, perRoom: [4, 5], mobs: [['cultist', 45], ['skeleton', 30], ['zombie', 25]], boss: 'herald',
     theme: { floor: '#3e3a52', wall: '#27243a', sky: '#08060f', fog: '#100c1c', light: '#b08cff', ambient: 0.5, portal: '#ff5a8a' },
     intro: 'Aqui o Selo foi forjado. As paredes sangram cinza e uma mão aberta brilha no chão.',

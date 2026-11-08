@@ -2,17 +2,18 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { F } from '../art/atlas';
-import { H, TILE, W, WorldData, zoneAt, ZONES } from '../chapters/chapter1';
+import { H, T, TILE, W, WorldData, zoneAt, ZONES } from '../chapters/chapter1';
 import { FOUNTAIN } from '../chapters/mapdims';
 import { VILLAGES } from '../chapters/town';
 
 const NAME: Record<number, string> = {};
-for (const [k, v] of Object.entries(F)) NAME[v as number] = k;
+for (const [k, v] of Object.entries(T)) NAME[v as number] = k;
 
 const GROUND: Record<string, string> = {
   grass: '#6cbb4b', grass2: '#62b044', flowers: '#6cbb4b', bush: '#6cbb4b', tree: '#66b447', tree2: '#66b447',
   dirt: '#bb915f', dirt2: '#ae8655', dirt3: '#c29b69', plaza: '#d2c9b6', plaza2: '#c7bda9', plaza3: '#d8cfbd', water: '#2f6fb0', sand: '#e3cb8e',
   forest: '#3f8a4c', ftree: '#3f8a4c', ftree2: '#3f8a4c', red: '#b05a3e', red_rock: '#b05a3e', red_tree: '#b05a3e', bones: '#b05a3e',
+  swamp: '#4f6a3a', swamp_tree: '#4f6a3a', dune: '#e0c27a', dune2: '#d6b56a', cactus: '#e0c27a', sandrock: '#d6b56a',
   stone: '#7d82a0', grave: '#7d82a0', grave2: '#7d82a0',
   roof_l: '#6cbb4b', roof: '#6cbb4b', roof_r: '#6cbb4b', wall_l: '#6cbb4b', wall: '#6cbb4b', wall_w: '#6cbb4b', wall_r: '#6cbb4b', door: '#6cbb4b',
 };
@@ -132,7 +133,7 @@ export function buildTerrain(world: WorldData): Terrain {
 
   // ---- colisão ----
   const solid = new Uint8Array(W * H);
-  const BLOCK = new Set(['water', 'tree', 'tree2', 'bush', 'ftree', 'ftree2', 'red_rock', 'red_tree', 'grave', 'grave2', 'roof_l', 'roof', 'roof_r', 'wall_l', 'wall', 'wall_w', 'wall_r', 'door']);
+  const BLOCK = new Set(['water', 'tree', 'tree2', 'bush', 'ftree', 'ftree2', 'red_rock', 'red_tree', 'swamp_tree', 'cactus', 'sandrock', 'grave', 'grave2', 'roof_l', 'roof', 'roof_r', 'wall_l', 'wall', 'wall_w', 'wall_r', 'door']);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (BLOCK.has(names[y][x])) solid[y * W + x] = 1;
   const FOUNTAINS = [FOUNTAIN, ...VILLAGES.map((v) => ({ x: v.cx, y: v.cy }))];
   for (const F0 of FOUNTAINS) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) solid[(F0.y + dy) * W + F0.x + dx] = 1; // fonte da praça (3×3)
@@ -177,6 +178,19 @@ export function buildTerrain(world: WorldData): Terrain {
     col(new THREE.IcosahedronGeometry(0.07, 0).translate(0.15, 0.1, -0.12), '#ffffff'),
     col(new THREE.IcosahedronGeometry(0.06, 0).translate(0.02, 0.09, 0.2), '#ffffff'),
   ]);
+  const treeSwamp = merge([
+    col(new THREE.CylinderGeometry(0.06, 0.12, 1.1, 5).translate(0, 0.55, 0), '#4a3a28'),
+    col(new THREE.CylinderGeometry(0.03, 0.05, 0.6, 4).rotateZ(-0.8).translate(-0.22, 0.9, 0), '#4a3a28'),
+    col(new THREE.IcosahedronGeometry(0.5, 0).scale(1.2, 0.6, 1.1).translate(0, 1.25, 0), '#4f7a3a'),
+    col(new THREE.IcosahedronGeometry(0.28, 0).translate(-0.32, 1.1, 0.1), '#6f9a4a'),
+  ]);
+  const cactus = merge([
+    col(new THREE.CylinderGeometry(0.13, 0.15, 1.1, 7).translate(0, 0.55, 0), '#4f9a4a'),
+    col(new THREE.CylinderGeometry(0.07, 0.08, 0.45, 6).translate(0.3, 0.7, 0), '#5aa855'),
+    col(new THREE.CylinderGeometry(0.07, 0.08, 0.3, 6).rotateZ(Math.PI / 2).translate(0.17, 0.5, 0), '#5aa855'),
+    col(new THREE.CylinderGeometry(0.07, 0.08, 0.35, 6).translate(-0.28, 0.6, 0), '#5aa855'),
+    col(new THREE.CylinderGeometry(0.07, 0.08, 0.28, 6).rotateZ(Math.PI / 2).translate(-0.16, 0.42, 0), '#5aa855'),
+  ]);
   const bone = merge([
     col(new THREE.BoxGeometry(0.4, 0.07, 0.08).rotateY(0.4).translate(-0.1, 0.05, 0), '#efe8d6'),
     col(new THREE.BoxGeometry(0.3, 0.07, 0.08).rotateY(-0.9).translate(0.15, 0.05, 0.12), '#e2dac6'),
@@ -203,6 +217,9 @@ export function buildTerrain(world: WorldData): Terrain {
     if (n === 'tree' || n === 'tree2') put('round', x, y, 0.95 + r() * 0.5 + (edge ? 0.5 : 0), vary);
     else if (n === 'ftree' || n === 'ftree2') put('pine', x, y, 1.0 + r() * 0.6 + (edge ? 0.4 : 0), vary);
     else if (n === 'red_tree') put('red', x, y, 0.9 + r() * 0.5, vary);
+    else if (n === 'swamp_tree') put('swamptree', x, y, 0.95 + r() * 0.6 + (edge ? 0.4 : 0), vary);
+    else if (n === 'cactus') put('cactus', x, y, 0.9 + r() * 0.6, vary);
+    else if (n === 'sandrock') put('rockred', x, y, 0.8 + r() * 0.9, new THREE.Color(1.35, 1.1, 0.7));
     else if (n === 'bush') put('bush', x, y, 0.9 + r() * 0.4, vary);
     else if (n === 'red_rock') put('rockred', x, y, 0.9 + r() * 0.9, new THREE.Color(1.0, 0.62 + r() * 0.15, 0.5));
     else if (n === 'grave') put('graveA', x, y, 1, vary, 0.1);
@@ -211,7 +228,7 @@ export function buildTerrain(world: WorldData): Terrain {
     else if (n === 'bones') put('bone', x, y, 1, vary, 0.2);
     else if (n === 'grass' && r() < 0.04) put('flower', x, y, 0.9, [hsl(0.95, 0.8, 0.7), hsl(0.13, 0.9, 0.65), new THREE.Color('#ffffff')][Math.floor(r() * 3)], 0.3);
   }
-  const geos: Record<string, THREE.BufferGeometry> = { round: treeRound, pine: treePine, red: treeRed, bush, rockred: rock, graveA, graveB, flower, bone };
+  const geos: Record<string, THREE.BufferGeometry> = { round: treeRound, pine: treePine, red: treeRed, swamptree: treeSwamp, cactus, bush, rockred: rock, graveA, graveB, flower, bone };
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
   for (const k of Object.keys(lists)) {
     const kind = k.split('|')[0];

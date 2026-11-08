@@ -113,6 +113,8 @@ const MODES: Record<string, { root: number; scale: number[]; tempo: number; wave
   crypt: { root: 196, scale: [0, 1, 5, 7, 8, 12], tempo: 3.1, wave: 'sine', vol: 0.45 },
   orcs: { root: 174.6, scale: [0, 3, 5, 7, 10, 12], tempo: 1.5, wave: 'sawtooth', vol: 0.2 },
   ogre: { root: 146.8, scale: [0, 1, 4, 5, 7, 8], tempo: 2.8, wave: 'sawtooth', vol: 0.2 },
+  swamp: { root: 164.8, scale: [0, 2, 3, 6, 7, 10], tempo: 3.0, wave: 'sine', vol: 0.45 },
+  desert: { root: 185, scale: [0, 1, 4, 5, 7, 8], tempo: 2.2, wave: 'triangle', vol: 0.45 },
   dungeon: { root: 123.5, scale: [0, 1, 3, 6, 7], tempo: 3.6, wave: 'sine', vol: 0.45 },
   boss: { root: 110, scale: [0, 1, 4, 5, 7], tempo: 0.9, wave: 'sawtooth', vol: 0.18 },
 };

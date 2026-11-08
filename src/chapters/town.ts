@@ -25,10 +25,12 @@ export const BUILDINGS: BuildingDef[] = [
 export interface VillageDef { id: string; zone: string; name: string; biome: string; cx: number; cy: number; r: number }
 export const VILLAGE_R = 17;
 export const VILLAGES: VillageDef[] = [
-  { id: 'clareira', zone: 'v_floresta', name: 'Passo da Clareira', biome: 'forest', cx: 50, cy: CY, r: VILLAGE_R },
-  { id: 'sinos', zone: 'v_cripta', name: 'Vigília dos Sinos', biome: 'crypt', cx: CX, cy: 52, r: VILLAGE_R },
-  { id: 'cinzaferro', zone: 'v_orcs', name: 'Forte Cinzaferro', biome: 'orcs', cx: 312, cy: CY, r: VILLAGE_R },
-  { id: 'refugio', zone: 'v_ogro', name: 'Último Refúgio', biome: 'ogre', cx: CX, cy: 238, r: VILLAGE_R },
+  { id: 'clareira', zone: 'v_floresta', name: 'Passo da Clareira', biome: 'forest', cx: 75, cy: CY, r: VILLAGE_R },
+  { id: 'sinos', zone: 'v_cripta', name: 'Vigília dos Sinos', biome: 'crypt', cx: CX, cy: 78, r: VILLAGE_R },
+  { id: 'cinzaferro', zone: 'v_orcs', name: 'Forte Cinzaferro', biome: 'orcs', cx: 468, cy: CY, r: VILLAGE_R },
+  { id: 'refugio', zone: 'v_ogro', name: 'Último Refúgio', biome: 'ogre', cx: CX, cy: 357, r: VILLAGE_R },
+  { id: 'palafitas', zone: 'v_pantano', name: 'Palafitas do Brejo', biome: 'swamp', cx: 110, cy: 68, r: VILLAGE_R },
+  { id: 'oasis', zone: 'v_deserto', name: 'Oásis do Escaravelho', biome: 'desert', cx: 500, cy: 382, r: VILLAGE_R },
 ];
 type VB = [string, string, BuildingKind, string, string];   // id, nome, tipo, id do NPC, nome do NPC
 const QUAD: { x0: number; y0: number; facing: 'S' | 'N' }[] = [
@@ -58,6 +60,18 @@ const VILLAGE_BUILDINGS: Record<string, VB[]> = {
     ['refugio-torre', 'Torre do Vigia', 'tower', 'sage', 'Sábia Ysolde'],
     ['refugio-capela', 'Capela do Último Refúgio', 'church', 'priest', 'Padre Lucan'],
     ['refugio-emporio', 'Empório do Refúgio', 'shop', 'merchant', 'Mercadora Brisa'],
+  ],
+  palafitas: [
+    ['palafitas-taverna', 'Taverna do Sapo Dourado', 'tavern', 'innkeeper', 'Taverneiro Mordo'],
+    ['palafitas-torre', 'Torre da Herbalista', 'tower', 'sage', 'Sábia Morwenna'],
+    ['palafitas-capela', 'Capela da Maré Sagrada', 'church', 'priest', 'Padre Ilmar'],
+    ['palafitas-emporio', 'Empório das Palafitas', 'shop', 'merchant', 'Mercadora Sula'],
+  ],
+  oasis: [
+    ['oasis-estalagem', 'Estalagem do Oásis', 'tavern', 'innkeeper', 'Taverneiro Zahir'],
+    ['oasis-forja', 'Forja do Sol Ardente', 'forge', 'smith', 'Ferreiro Khalid'],
+    ['oasis-bazar', 'Bazar das Dunas', 'shop', 'merchant', 'Mercadora Samira'],
+    ['oasis-posto', 'Posto dos Caravaneiros', 'barracks', 'captain', 'Capitão Idris'],
   ],
 };
 for (const v of VILLAGES) {

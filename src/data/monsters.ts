@@ -40,6 +40,18 @@ export const MOBS: MobDef[] = [
   { id: 'orcshaman', name: 'Xamã Orc', level: 8, hp: 90, ac: 12, atk: 7, dmg: [1, 10], dmgBonus: 3, speed: 50, aggro: 110, atkInterval: 1600, xp: 76, scale: 1.1 },
   { id: 'gnoll', name: 'Gnoll', level: 8, hp: 100, ac: 13, atk: 6, dmg: [1, 10], dmgBonus: 3, speed: 60, aggro: 105, atkInterval: 1400, xp: 74, scale: 1.15 },
   { id: 'troll', name: 'Troll', level: 10, hp: 200, ac: 13, atk: 8, dmg: [2, 8], dmgBonus: 4, speed: 46, aggro: 105, atkInterval: 1700, xp: 118, scale: 2 },
+  // Pântano Abandonado (nível 11–13) e Deserto (nível 14–16) — SRD 5.1
+  { id: 'lizardfolk', name: 'Homem-Lagarto', level: 11, hp: 240, ac: 14, atk: 9, dmg: [1, 10], dmgBonus: 4, speed: 52, aggro: 105, atkInterval: 1500, xp: 150, scale: 1.15 },
+  { id: 'giantfrog', name: 'Sapo Gigante', level: 11, hp: 190, ac: 12, atk: 8, dmg: [1, 8], dmgBonus: 3, speed: 62, aggro: 90, atkInterval: 1300, xp: 130, scale: 1.2 },
+  { id: 'crocodile', name: 'Crocodilo', level: 12, hp: 290, ac: 13, atk: 10, dmg: [2, 8], dmgBonus: 4, speed: 56, aggro: 100, atkInterval: 1700, xp: 170, scale: 1.5 },
+  { id: 'willowisp', name: 'Fogo-Fátuo', level: 12, hp: 220, ac: 15, atk: 10, dmg: [2, 6], dmgBonus: 4, speed: 66, aggro: 115, atkInterval: 1400, xp: 175, scale: 0.9 },
+  { id: 'shambler', name: 'Monte Movediço', level: 13, hp: 380, ac: 12, atk: 10, dmg: [2, 10], dmgBonus: 5, speed: 34, aggro: 95, atkInterval: 1900, xp: 210, scale: 2 },
+  { id: 'greenhag', name: 'Bruxa Verde', level: 13, hp: 300, ac: 17, atk: 11, dmg: [2, 8], dmgBonus: 5, speed: 50, aggro: 115, atkInterval: 1600, xp: 220, scale: 1.15 },
+  { id: 'scorpion', name: 'Escorpião Gigante', level: 14, hp: 360, ac: 15, atk: 12, dmg: [2, 8], dmgBonus: 5, speed: 58, aggro: 100, atkInterval: 1500, xp: 260, scale: 1.6 },
+  { id: 'vulture', name: 'Abutre Gigante', level: 14, hp: 330, ac: 13, atk: 12, dmg: [2, 6], dmgBonus: 5, speed: 76, aggro: 115, atkInterval: 1300, xp: 255, scale: 1.4 },
+  { id: 'dustmephit', name: 'Mefit de Poeira', level: 15, hp: 300, ac: 14, atk: 12, dmg: [2, 6], dmgBonus: 5, speed: 68, aggro: 115, atkInterval: 1300, xp: 270, scale: 0.8 },
+  { id: 'mummy', name: 'Múmia', level: 15, hp: 440, ac: 15, atk: 13, dmg: [2, 10], dmgBonus: 6, speed: 38, aggro: 100, atkInterval: 1800, xp: 300, scale: 1.15 },
+  { id: 'wight', name: 'Aparição', level: 16, hp: 460, ac: 16, atk: 13, dmg: [2, 8], dmgBonus: 6, speed: 52, aggro: 110, atkInterval: 1500, xp: 330, scale: 1.1 },
   { id: 'gnarlmaw', name: 'Gnarlmaw, o Ogro Ancião', level: 10, hp: 1100, ac: 14, atk: 8, dmg: [2, 8], dmgBonus: 4, speed: 44, aggro: 210, atkInterval: 1500, xp: 400, scale: 3, boss: true },
   // chefes e monstros de masmorra
   { id: 'cultist', name: 'Cultista Cinzento', level: 6, hp: 80, ac: 12, atk: 5, dmg: [1, 8], dmgBonus: 2, speed: 55, aggro: 100, atkInterval: 1500, xp: 40, scale: 1 },

@@ -171,7 +171,7 @@ export function newPlayer(name: string, raceId: string, classId: string, tone: s
   const armor = starterArmor(cls.armor === 'cloth' ? 'cloth' : 'light');
   const offhand = cls.art.shield && !weapon.twoHanded ? starterShield() : undefined;
   const p: PlayerState = {
-    v: 3, name, raceId, classId, tone, ...(look ? { look: sanitizeLook(look) } : {}), level: 1, xp: 0, gold: 20, hp: 1, en: 1,
+    v: 4, name, raceId, classId, tone, ...(look ? { look: sanitizeLook(look) } : {}), level: 1, xp: 0, gold: 20, hp: 1, en: 1,
     items: [], equipped: { mainhand: weapon, body: armor, ...(offhand ? { offhand } : {}) }, potions: { heal: 3, energy: 1 }, mats: {}, quests: {}, kills: 0,
     pos: { x: 0, y: 0 }, story: { fragments: [], seen: {}, ended: false },
   };
@@ -227,6 +227,7 @@ export function loadSave(n = activeSlot): PlayerState | null {
     if (!p.story) p.story = { fragments: [], seen: {}, ended: false };
     if (p.v < 2) { p.pos = { x: 0, y: 0 }; p.v = 2; }
     if (p.v < 3) { p.pos = { x: 0, y: 0 }; delete p.explored; p.v = 3; } // mapa muito maior: reposiciona na vila e refaz a exploração
+    if (p.v < 4) { p.pos = { x: 0, y: 0 }; delete p.explored; p.v = 4; } // mapa 1,5× maior + Pântano e Deserto
     return p;
   } catch { return null; }
 }

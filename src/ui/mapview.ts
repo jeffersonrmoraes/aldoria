@@ -18,7 +18,7 @@ const mk = (w: number, h: number) => { const c = document.createElement('canvas'
 
 interface View { kind: MapKind; S: number; M: number; ox: number; oy: number; wt: number; ht: number; cw: number; ch: number }
 // ox/oy: tile de origem; wt/ht: tiles exibidos; S: pixels por tile; M: margem da moldura
-const GLOBAL: View = { kind: 'global', S: 3, M: 34, ox: 0, oy: 0, wt: W, ht: H, cw: W * 3 + 68, ch: H * 3 + 68 + 8 };
+const GLOBAL: View = { kind: 'global', S: 2, M: 34, ox: 0, oy: 0, wt: W, ht: H, cw: W * 2 + 68, ch: H * 2 + 68 + 8 };
 const CITYR = TOWN_R + 4;
 const CITY: View = { kind: 'city', S: 11, M: 34, ox: CX - CITYR, oy: CY - CITYR, wt: CITYR * 2 + 1, ht: CITYR * 2 + 1, cw: (CITYR * 2 + 1) * 11 + 68, ch: (CITYR * 2 + 1) * 11 + 68 + 8 };
 const VIEWS = { global: GLOBAL, city: CITY };
@@ -170,7 +170,7 @@ const cat = (id: number): string => {
   if (id === T.wall || id === T.wall_l || id === T.wall_r || id === T.wall_w || id === T.roof || id === T.roof_l || id === T.roof_r || id === T.door) return 'wall';
   return 'land';
 };
-const ZONE_TINT: Record<string, string> = { town: '#cdd596', fields: '#c9d28c', forest: '#97b472', crypt: '#b3b09f', orcs: '#d09a6e', ogre: '#a97a5c', v_floresta: '#97b472', v_cripta: '#b3b09f', v_orcs: '#d09a6e', v_ogro: '#a97a5c' };
+const ZONE_TINT: Record<string, string> = { town: '#cdd596', fields: '#c9d28c', forest: '#97b472', crypt: '#b3b09f', orcs: '#d09a6e', ogre: '#a97a5c', swamp: '#8f9c64', desert: '#e8d192', v_pantano: '#8f9c64', v_deserto: '#e8d192', v_floresta: '#97b472', v_cripta: '#b3b09f', v_orcs: '#d09a6e', v_ogro: '#a97a5c' };
 const TILE_TINT = (id: number, z: string): string => {
   const c = cat(id);
   if (c === 'water') return '#86b1b8';
@@ -238,6 +238,10 @@ function drawGlobalIcons(g: CanvasRenderingContext2D, v: View, tiles: number[][]
     else if (id === T.ftree || id === T.ftree2) { if (r() < 0.6) items.push({ y: Y, draw: () => tree(g, X, Y, 7.5, 'pine') }); }
     else if (id === T.red_tree) { if (r() < 0.5) items.push({ y: Y, draw: () => tree(g, X, Y, 7.5, z === 'ogre' ? 'dead' : 'red') }); }
     else if (id === T.red_rock) { if (r() < 0.5) items.push({ y: Y, draw: () => hill(g, X, Y, 7, '#cfa77c') }); }
+    else if (id === T.swamp_tree) { if (r() < 0.4) items.push({ y: Y, draw: () => tree(g, X, Y, 7.5, 'dead') }); }
+    else if (id === T.sandrock) { if (r() < 0.4) items.push({ y: Y, draw: () => hill(g, X, Y, 7, '#e0c98a') }); }
+    else if (id === T.cactus) { if (r() < 0.6) items.push({ y: Y, draw: () => { g.save(); g.strokeStyle = INK; g.fillStyle = '#6fa356'; g.lineWidth = 1; g.fillRect(X - 1.4, Y - 8, 2.8, 8); g.strokeRect(X - 1.4, Y - 8, 2.8, 8); g.fillRect(X + 1.4, Y - 5.5, 3, 1.8); g.fillRect(X + 3, Y - 8, 1.8, 4); g.fillRect(X - 4.4, Y - 4.5, 3, 1.8); g.fillRect(X - 4.4, Y - 7, 1.8, 3); g.restore(); } }); }
+    else if ((id === T.dune || id === T.dune2) && r() < 0.004) items.push({ y: Y, draw: () => hill(g, X, Y, 10, '#e3cb8c') });
     else if (id === T.grave || id === T.grave2) { if (r() < 0.5) items.push({ y: Y, draw: () => gravestone(g, X, Y, 6) }); }
     else if (id === T.stone && r() < 0.006) items.push({ y: Y, draw: () => mountain(g, X, Y, 12) });
     else if (id === T.red && r() < 0.008) items.push({ y: Y, draw: () => hill(g, X, Y, 11, '#d4a574') });
@@ -252,7 +256,7 @@ function drawGlobalLabels(g: CanvasRenderingContext2D, v: View) {
     halo(g, z.name.toUpperCase(), px(v, tx), py(v, ty), 15.5, { bold: true, color: '#5a2a1a', spacing: 3, halo: 5 });
     halo(g, z.levels, px(v, tx), py(v, ty) + 17, 12.5, { italic: true, color: INK2, halo: 3.5 });
   };
-  L('fields', 200, 88); L('forest', 60, 180); L('crypt', 200, 20); L('orcs', 340, 190); L('ogre', 130, 275);
+  L('fields', 300, 132); L('forest', 90, 270); L('crypt', 300, 30); L('orcs', 510, 285); L('ogre', 195, 412); L('swamp', 90, 18); L('desert', 510, 330);
   // cidade
   const x = px(v, CX), y = py(v, CY);
   g.save(); g.strokeStyle = INK; g.lineWidth = 1.4; g.fillStyle = '#e4d9b4';
@@ -278,10 +282,10 @@ function drawGlobalLabels(g: CanvasRenderingContext2D, v: View) {
     dungeonIcon(g, d.id, X, Y, 9);
     halo(g, d.name, X, Y + 15 + sub[d.id], 13, { bold: true, halo: 4.5 });
   }
-  dragon(g, px(v, 366), py(v, 246), 0.85);
+  dragon(g, px(v, 565), py(v, 255), 0.85);
   // viela até o moinho (estrada)
   g.save(); g.strokeStyle = 'rgba(70,45,20,0.75)'; g.setLineDash([5, 4]); g.lineWidth = 1.4; g.beginPath();
-  g.moveTo(px(v, CX), py(v, CY + TOWN_R)); g.quadraticCurveTo(px(v, CX + 24), py(v, CY + 50), px(v, 251), py(v, 212)); g.stroke(); g.restore();
+  g.moveTo(px(v, CX), py(v, CY + TOWN_R)); g.quadraticCurveTo(px(v, CX + 36), py(v, CY + 75), px(v, 377), py(v, 318)); g.stroke(); g.restore();
 }
 
 function compass(g: CanvasRenderingContext2D, x: number, y: number, s: number) {

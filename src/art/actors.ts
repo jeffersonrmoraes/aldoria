@@ -455,6 +455,19 @@ export const MOB_SPEC: Record<string, ModelSpec | 'rat' | 'wolf' | 'slime' | 'ja
   ogre: { model: 'Barbarian', skin: '#e0c088', scale: 1.9, hide: ['Barbarian_Hat'], tint: '#d9b878', wide: 1.4, melee: 'Unarmed_Melee_Attack_Punch_A', parts: [{ k: 'tusks', s: 1.0 }, { k: 'nose', c: '#c9a468', s: 1 }, { k: 'eyes', c: '#ff6a2a', s: 0.7 }] },
   troll: { model: 'Barbarian', skin: '#6aaa6a', scale: 2.0, hide: ['Barbarian_Hat'], tint: '#4f9a5a', wide: 0.85, melee: 'Unarmed_Melee_Attack_Punch_A', parts: [{ k: 'nose', c: '#3f8a4a', s: 1.3 }, { k: 'tusks', s: 1.1 }, { k: 'spikes', c: '#2a6a34' }, { k: 'eyes', c: '#ff2a2a', s: 1 }] },
   gnarlmaw: { model: 'Barbarian', hide: ['Barbarian_Hat'], skin: '#e0604a', scale: 2.6, show: ['2H_Axe'], tint: '#d04a3a', wide: 1.2, melee: '2H_Melee_Attack_Chop', parts: [{ k: 'hornsBig', c: '#2a1a14', s: 1.1 }, { k: 'tusks', s: 1.0 }, { k: 'spikes', c: '#2a1a14', s: 1.0 }, { k: 'eyes', c: '#ffe03a', s: 1.0 }] },
+  // Pântano Abandonado
+  lizardfolk: { model: 'Barbarian', hide: ['Barbarian_Hat'], skin: '#6f9a52', scale: 1.1, show: ['1H_Axe'], tint: '#5f8a45', wide: 0.95, parts: [{ k: 'tail', c: '#4f7a3a' }, { k: 'spikes', c: '#3f6a2a' }, { k: 'fangs', s: 1.2 }, { k: 'eyes', c: '#ffd23a' }] },
+  giantfrog: { model: 'Rogue', skin: '#5fae4a', scale: 0.85, tint: '#4f9a3a', wide: 1.5, melee: 'Unarmed_Melee_Attack_Punch_A', parts: [{ k: 'eyes', c: '#ffe03a', s: 1.7 }, { k: 'nose', c: '#4f9a3a', s: 1.5 }] },
+  crocodile: { model: 'Barbarian', hide: ['Barbarian_Hat'], skin: '#4f7a3a', scale: 1.4, tint: '#3f6a30', wide: 1.4, melee: 'Unarmed_Melee_Attack_Punch_A', parts: [{ k: 'tail', c: '#3a5a28', s: 1.4 }, { k: 'fangs', s: 1.6 }, { k: 'spikes', c: '#2a4a1c' }, { k: 'eyes', c: '#ffcc2a' }] },
+  willowisp: { model: 'SkMage', scale: 0.8, tint: '#6af0b8', opacity: 0.55, eyeColor: '#f0ffb0', melee: 'Spellcast_Shoot' },
+  shambler: { model: 'Barbarian', hide: ['Barbarian_Hat'], skin: '#5a7a2e', scale: 2.0, tint: '#46662a', wide: 1.5, melee: 'Unarmed_Melee_Attack_Punch_A', parts: [{ k: 'spikes', c: '#3a5a1c' }, { k: 'mane', c: '#2e4a18' }, { k: 'eyes', c: '#d8ff4a' }] },
+  greenhag: { model: 'Mage', skin: '#7aa860', scale: 1.1, show: ['2H_Staff'], tint: '#5a7a46', cape: '#2a3a24', melee: 'Spellcast_Shoot', parts: [{ k: 'nose', c: '#6a9850', s: 1.7 }, { k: 'eyes', c: '#ffe03a' }] },
+  // Deserto
+  scorpion: { model: 'Barbarian', hide: ['Barbarian_Hat'], skin: '#c08a3a', scale: 1.5, tint: '#b07a30', wide: 1.4, melee: 'Unarmed_Melee_Attack_Punch_A', parts: [{ k: 'tail', c: '#8a5a22', s: 1.6 }, { k: 'spikes', c: '#7a4a1a' }, { k: 'horn', c: '#7a4a1a', s: 1.2 }, { k: 'eyes', c: '#ff4a2a' }] },
+  vulture: { model: 'Rogue', skin: '#6a5a4a', scale: 1.15, tint: '#5a4a3a', cape: '#3a2a22', parts: [{ k: 'nose', c: '#d8c070', s: 1.4 }, { k: 'eyes', c: '#ff4a2a' }] },
+  dustmephit: { model: 'SkMage', scale: 0.75, tint: '#d8b070', opacity: 0.65, eyeColor: '#fff0a0', melee: 'Spellcast_Shoot' },
+  mummy: { model: 'SkMinion', scale: 1.1, wide: 1.05, tint: '#d8cc9e', eyeColor: '#7aff8a', melee: 'Unarmed_Melee_Attack_Punch_A' },
+  wight: { model: 'Skeleton', scale: 1.15, tint: '#7a8a9a', eyeColor: '#b0ffff', parts: [{ k: 'crown', c: '#8a9ab0', s: 1.0 }] },
   // masmorras
   ratking: 'ratking',
   goblinking: { model: 'Rogue', skin: '#80d04f', scale: 1.25, show: ['Knife', 'Knife_Offhand'], tint: '#6fc03f', cape: '#d4a017', parts: [{ k: 'ears', s: 1.8 }, { k: 'crown' }, { k: 'eyes', c: '#ff3a1a', s: 1.3 }, { k: 'nose', c: '#5aa030', s: 1.4 }] },
