@@ -115,13 +115,13 @@ Seis espaços: **Elmo, Corpo, Pernas, Mão Direita, Mão Esquerda, Acessório**.
 
 ## Menu, espaços de personagem e lojas especializadas
 - **Esc** → Menu → "Salvar e voltar ao menu principal". Tela inicial com **3 espaços de personagem** (jogar, criar, excluir).
-- Lojas por ofício: Ferreiro, Sábio, Arqueira, Monge, Ladino e Empório (ver CLAUDE.md). Três novos prédios na cidade: Arco do Falcão (leste), Mosteiro do Punho Sereno (sul) e Adaga Silenciosa (sul-oeste).
+- Lojas por ofício: apenas Ferreiro (com Forja), Sábio e Empório (ver CLAUDE.md).
 
 ## Armas por classe (uma mão e duas mãos)
 Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WEAPONS` em `src/data/items.ts`):
-- **Corpo a corpo** (Bárbaro, Clérigo, Guerreiro, Paladino, Ladino): espadas/maças/machadinhas (1 mão) e Montante, Machado Grande e **Bordão** (2 mãos, ladino compra Bordão na Adaga Silenciosa).
+- **Corpo a corpo** (Bárbaro, Clérigo, Guerreiro, Paladino, Ladino): espadas/maças/machadinhas (1 mão) e Montante, Machado Grande e **Bordão** (2 mãos).
 - **Monge**: manoplas/bastão/kama (1 mão) + **Bordão de Carvalho / Ferrado / do Mestre Ki** (2 mãos; o bordão é arma de monge no SRD).
-- **Patrulheiro**: arcos e bestas (2 mãos) + **Besta de Pulso** (1 mão; besta presa ao antebraço, braçadeira que atira): Besta de Pulso, Rúnica, Élfica, Braçadeira do Caçador de Dragões. Vendida no Arco do Falcão.
+- **Patrulheiro**: arcos e bestas (2 mãos) + **Besta de Pulso** (1 mão; besta presa ao antebraço, braçadeira que atira): Besta de Pulso, Rúnica, Élfica, Braçadeira do Caçador de Dragões. Vem da Forja, do Ferreiro e de drops.
 - **Conjuradores** (Bardo, Bruxo, Druida, Feiticeiro, Mago): cajados (2 mãos) + **varinhas e livros** (1 mão): Varinha de Carvalho/Cristal/Rúnica/do Arquimago, Livro de Feitiços, Grimório de Guerra, Tomo Arcano, Livro do Arquimago. Vendidos pelo Sábio.
 - `isTwoHanded()` reconhece arco, besta (exceto "Besta de Pulso"), cajado, bordão, Montante e Machado Grande.
 
