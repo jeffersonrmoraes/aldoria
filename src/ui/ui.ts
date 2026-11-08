@@ -1,6 +1,6 @@
 import { CLASSES, CLASS_BY_ID, ARMOR_NAMES } from '../data/classes';
 import { RACES, RACE_BY_ID } from '../data/races';
-import { ABILITIES, ABILITY_NAMES, ABILITY_SHORT, MAX_LEVEL } from '../data/rules';
+import { ABILITIES, ABILITY_NAMES, ABILITY_SHORT, MAX_LEVEL, SkillDef } from '../data/rules';
 import { BAG_SIZE, PlayerState, addItem, derive, deleteSave, equipBlock, equipWarn, gainXp, listSaves, loadSave, newPlayer, weaponPenalty, player, save, setPlayer, setSlot } from '../game/state';
 import { Craftable, Item, Rarity, STARTER_WEAPONS, craftItem, craftables, findBase, itemValue, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, SHOP_REFRESH_COST, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
 import { QUESTS, ZONES, ZoneDef, zoneAt } from '../chapters/chapter1';
@@ -15,6 +15,7 @@ import { portrait } from '../art/portrait';
 import { EYE_COLORS, Look, OUTFITS, Opt, defaultLook, heightScale, randomLook } from '../data/looks';
 import { MATS, canPay, craftCost, payMats } from '../data/materials';
 import { bus } from '../game/bus';
+import { CLASS_EXTRA, EXTRA_BY_ID, WEAPON_EXTRA } from '../data/extraskills';
 import { FAMILIES, buyWeaponNode, weaponNodeState, weaponPointsLeft, weaponPointsTotal, weaponTree } from '../data/weapontree';
 import { FAMILY_NAMES, WeaponFamily, weaponFamily } from '../data/weaponskills';
 import { attrTree, attrPointsLeft, attrPointsTotal, buyNode, nodeState, respecCost, skillPointsLeft, skillPointsTotal, skillTree, Tree, TreeNode } from '../data/progression';
@@ -259,8 +260,8 @@ export function initHud() {
 
   const sk = q('#skills');
   sk.innerHTML = '';
-  for (let i = 0; i < 6; i++) {
-    const s = h(`<b>${i + 1}</b><span class="ic"></span><em></em><div class="cd"></div>`, i >= 4 ? 'slot wslot' : 'slot');
+  for (let i = 0; i < 9; i++) {
+    const s = h(`<b>${i + 1}</b><span class="ic"></span><em></em><div class="cd"></div>`, i >= 6 ? 'slot xslot' : i >= 4 ? 'slot wslot' : 'slot');
     s.dataset.i = String(i);
     s.onclick = () => bus.emit('skill', i);
     sk.appendChild(s);
@@ -393,7 +394,7 @@ function onHud(s: {
   document.querySelectorAll<HTMLElement>('#skills .slot[data-i]').forEach((el, i) => {
     const k = s.skills[i];
     const ic = q('.ic', el), em = q('em', el), cd = q('.cd', el);
-    if (!k) { el.style.opacity = '0.15'; ic.textContent = ''; em.textContent = ''; el.title = ''; return; }
+    if (!k) { el.style.opacity = el.classList.contains('xslot') ? '0.45' : '0.15'; ic.textContent = el.classList.contains('xslot') ? '＋' : ''; em.textContent = ''; el.title = el.classList.contains('xslot') ? 'Casa livre — escolha uma habilidade em K › 🎯 Barra' : ''; return; }
     el.style.opacity = '';
     ic.textContent = k.icon;
     em.textContent = player.level < k.unlock ? 'Nv' + k.unlock : String(k.cost);
@@ -790,10 +791,40 @@ function forgeWindow() {
 }
 
 // ======================== ÁRVORES ========================
-type SkTab = 'skills' | 'attrs' | 'weapons';
+type SkTab = 'skills' | 'attrs' | 'weapons' | 'bar';
 let skTab: SkTab = 'skills';
 let wFam: WeaponFamily | null = null;
+const SK_TABS = (tab: SkTab) => `<div class="tabs"><button data-tab="skills" class="${tab === 'skills' ? 'on' : ''}">⚔️ Habilidades</button><button data-tab="attrs" class="${tab === 'attrs' ? 'on' : ''}">📊 Atributos</button><button data-tab="weapons" class="${tab === 'weapons' ? 'on' : ''}">🗡️ Armas</button><button data-tab="bar" class="${tab === 'bar' ? 'on' : ''}">🎯 Barra</button></div>`;
+/** Escolha das habilidades extras (classe + arma empunhada) nas 3 casas livres da barra (teclas 7, 8, 9). */
+function renderBar() {
+  skTab = 'bar';
+  const fam = weaponFamily(player.equipped.mainhand?.name);
+  const bar = (player.bar ??= ['', '', '']);
+  const rows = (title: string, list: SkillDef[]) => `<h4 style="margin:10px 0 4px;color:#ffe9a8">${title}</h4>` + list.map((s) => {
+    const locked = player.level < s.unlock;
+    const at = bar.indexOf(s.id);
+    return `<div class="qrow" style="display:flex;gap:8px;align-items:center;${locked ? 'opacity:.5' : ''}"><span style="font-size:24px">${s.icon}</span>
+      <div style="flex:1"><b>${s.name}</b> <span style="color:#a79cc4">nv ${s.unlock}${locked ? ' 🔒' : ''} · ⚡${s.cost} · ${Math.round(s.cd / 1000)} s</span><br><span style="font-size:12px;color:#a79cc4">${s.desc}</span></div>
+      <div class="row" style="margin:0">${[0, 1, 2].map((k) => `<button data-set="${s.id}|${k}" ${locked ? 'disabled' : ''} class="${at === k ? 'primary' : ''}">${k + 7}</button>`).join('')}</div></div>`;
+  }).join('');
+  const cur = [0, 1, 2].map((k) => { const s = bar[k] ? EXTRA_BY_ID[bar[k]] : null; return `<div class="qrow" style="flex:1;text-align:center"><b style="color:#d9b8ff">Tecla ${k + 7}</b><br>${s ? `${s.icon} ${s.name}` : '<span style="color:#a79cc4">livre</span>'}${s ? ` <button data-clear="${k}" style="padding:0 6px">✕</button>` : ''}</div>`; }).join('');
+  const w = setWin(`<h3>Barra de Habilidades${closeBtn}</h3>${SK_TABS('bar')}
+    <div style="font-size:12px;color:#a79cc4">Escolha quais habilidades extras ficam nas 3 casas livres (teclas 7, 8 e 9). As de arma só valem enquanto você empunha aquele tipo de arma. Melhore cada uma nas árvores.</div>
+    <div class="row" style="gap:6px;margin:6px 0">${cur}</div>
+    ${rows(`Habilidades de ${CLASS_BY_ID[player.classId].name}`, CLASS_EXTRA[player.classId] ?? [])}
+    ${rows(`Habilidades de ${FAMILY_NAMES[fam]} (arma empunhada)`, WEAPON_EXTRA[fam])}`);
+  bindClose(w);
+  w.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => (b.onclick = () => renderSkills(b.dataset.tab as SkTab)));
+  w.querySelectorAll<HTMLElement>('[data-set]').forEach((b) => (b.onclick = () => {
+    const [id, k] = b.dataset.set!.split('|'); const n = Number(k);
+    const prev = bar.indexOf(id); if (prev >= 0) bar[prev] = '';
+    bar[n] = bar[n] === id ? '' : id;
+    bus.emit('recalc'); save(); renderBar();
+  }));
+  w.querySelectorAll<HTMLElement>('[data-clear]').forEach((b) => (b.onclick = () => { bar[Number(b.dataset.clear)] = ''; save(); renderBar(); }));
+}
 function renderSkills(tab: SkTab) {
+  if (tab === 'bar') { renderBar(); return; }
   skTab = tab;
   const eqFam = weaponFamily(player.equipped.mainhand?.name);
   if (tab === 'weapons' && !wFam) wFam = eqFam;
@@ -814,7 +845,7 @@ function renderSkills(tab: SkTab) {
        <div style="font-size:12px;color:#a79cc4">✋ = arma empunhada. Os bônus só valem enquanto você empunha este tipo de arma; as habilidades 5/6 são as dele.</div>`
     : '';
   const w = setWin(`<h3>${tree.title}${closeBtn}</h3>
-    <div class="tabs"><button data-tab="skills" class="${tab === 'skills' ? 'on' : ''}">⚔️ Habilidades</button><button data-tab="attrs" class="${tab === 'attrs' ? 'on' : ''}">📊 Atributos</button><button data-tab="weapons" class="${tab === 'weapons' ? 'on' : ''}">🗡️ Armas</button></div>
+    ${SK_TABS(tab)}
     ${famBar}
     <div style="font-size:13px">Pontos disponíveis: <b style="color:#ffd23f">${left}</b> / ${total} <span style="color:#a79cc4">(ganhos por nível, com bônus nos níveis 5, 10, 15 e 20)</span></div>
     <div class="tree">${cols}</div>

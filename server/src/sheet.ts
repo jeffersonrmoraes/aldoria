@@ -53,7 +53,7 @@ export function sanitizeSheet(m: SheetMsg, rejected?: string[]): PlayerState | n
     v: 3, name: '', raceId: String(m.raceId), classId: String(m.classId), tone: '',
     level: Math.round(num(m.level, 1, MAX_LEVEL, 1)), xp: 0, gold: 0, hp: 1, en: 1, items: [], equipped: {},
     potions: { heal: 0, energy: 0 }, quests: {}, kills: 0, pos: { x: 0, y: 0 }, story: { fragments: [], seen: {}, ended: false },
-    skills: flags(m.skills), attrs: flags(m.attrs), wskills: flags(m.wskills),
+    skills: flags(m.skills), attrs: flags(m.attrs), wskills: flags(m.wskills), bar: [0, 1, 2].map((i) => (Array.isArray(m.bar) && typeof m.bar[i] === 'string' ? str(m.bar[i], 40) : '')),
   };
   const eq = isObj(m.equipped) ? m.equipped : {};
   for (const sl of SLOTS) {

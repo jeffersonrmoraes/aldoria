@@ -448,7 +448,7 @@ export class World3D {
       const k = e.key.toLowerCase();
       this.keys.add(k);
       if (e.repeat) return;
-      if (k >= '1' && k <= '6') this.useSkill(Number(k) - 1);
+      if (k >= '1' && k <= '9') this.useSkill(Number(k) - 1);
       else if (k === 'enter') this.openChat();
       else if (k === 'h') this.usePotion('heal');
       else if (k === 'j') this.usePotion('energy');
@@ -562,7 +562,7 @@ export class World3D {
   private isSrv(m: Mob) { return m.idx !== undefined && this.srvOn(); }
 
   private sheetMsg(): SheetMsg {
-    return { raceId: player.raceId, classId: player.classId, level: player.level, equipped: player.equipped as Record<string, unknown>, skills: player.skills, attrs: player.attrs, wskills: player.wskills };
+    return { raceId: player.raceId, classId: player.classId, level: player.level, equipped: player.equipped as Record<string, unknown>, skills: player.skills, attrs: player.attrs, wskills: player.wskills, bar: player.bar };
   }
 
   /** instantâneo de monstros próximos: [idx, x, y, hp, flags, face] (flags: 1 morto, 2 perseguindo, 4 andando) */
@@ -1761,7 +1761,7 @@ export class World3D {
     bus.emit('hud', {
       hp: player.hp, maxHp: this.d.maxHp, en: player.en, maxEn: this.d.maxEn,
       xp: player.xp, xpCur: xpForCurrent(player.level), xpNext: xpForNext(player.level),
-      skills: [sk(0), sk(1), sk(2), sk(3), sk(4), sk(5)],
+      skills: [sk(0), sk(1), sk(2), sk(3), sk(4), sk(5), sk(6), sk(7), sk(8)],
       pot: Math.max(0, this.potCd - time) / 6000,
       buffs: this.buffs.length,
       boss: this.hudBoss(time),

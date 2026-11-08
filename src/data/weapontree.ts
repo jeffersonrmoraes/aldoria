@@ -4,6 +4,7 @@
 import { Bonus, addBonus, bonusLines } from './rules';
 import type { SkillMod, Tree, TreeNode } from './progression';
 import { FAMILY_NAMES, WeaponFamily, weaponFamily } from './weaponskills';
+import { WEAPON_EXTRA } from './extraskills';
 
 export const FAMILIES = Object.keys(FAMILY_NAMES) as WeaponFamily[];
 export const weaponPointsTotal = (level: number) => level + (level >= 5 ? 1 : 0) + (level >= 10 ? 1 : 0) + (level >= 15 ? 1 : 0) + (level >= 20 ? 1 : 0);
@@ -31,11 +32,18 @@ export function weaponTree(f: WeaponFamily): Tree {
       { id: `${f}:s${s}c`, name: 'Maestria', icon: '👑', desc: '+30% de dano e -10% de recarga', branch: br, tier: 3, cost: 2, req: `${f}:s${s}b`, skill: s, mod: { dmgPct: 0.3, cdPct: 0.1 } },
     );
   }
-  return (cache[f] = {
-    title: `Árvore de Armas — ${FAMILY_NAMES[f]}`,
-    branches: [{ name: 'Perícia', icon: '⚔️' }, { name: 'Habilidade 1', icon: '5️⃣' }, { name: 'Habilidade 2', icon: '6️⃣' }],
-    nodes,
+  const branches = [{ name: 'Perícia', icon: '⚔️' }, { name: 'Habilidade 1', icon: '5️⃣' }, { name: 'Habilidade 2', icon: '6️⃣' }];
+  WEAPON_EXTRA[f].forEach((sk, k) => {          // 4 habilidades extras por tipo de arma
+    const br = 3 + k;
+    const dmgKind = !['heal', 'buff'].includes(sk.kind);
+    branches.push({ name: sk.name, icon: sk.icon });
+    nodes.push(
+      { id: `${f}:x${k}a`, name: dmgKind ? 'Potência' : 'Intensidade', icon: '💥', desc: dmgKind ? '+18% de dano da habilidade' : '+20% de efeito', branch: br, tier: 1, cost: 1, skillId: sk.id, mod: { dmgPct: dmgKind ? 0.18 : 0.2 } },
+      { id: `${f}:x${k}b`, name: 'Eficiência', icon: '⏳', desc: '-15% de recarga e de custo de energia', branch: br, tier: 2, cost: 1, req: `${f}:x${k}a`, skillId: sk.id, mod: { cdPct: 0.15, costPct: 0.15 } },
+      { id: `${f}:x${k}c`, name: 'Maestria', icon: '👑', desc: dmgKind ? '+30% de dano e -10% de recarga' : '+30% de efeito e -10% de recarga', branch: br, tier: 3, cost: 2, req: `${f}:x${k}b`, skillId: sk.id, mod: { dmgPct: 0.3, cdPct: 0.1 } },
+    );
   });
+  return (cache[f] = { title: `Árvore de Armas — ${FAMILY_NAMES[f]}`, branches, nodes });
 }
 
 export const weaponPointsSpent = (owned?: Record<string, 1>) => {
@@ -71,6 +79,16 @@ export function weaponSkillMod(p: WState, s: number): Required<SkillMod> {
   if (!p.wskills) return m;
   const f = weaponFamily(p.equipped.mainhand?.name);
   for (const n of weaponTree(f).nodes) if (n.skill === s && p.wskills[n.id] && n.mod) {
+    m.dmgPct += n.mod.dmgPct ?? 0; m.cdPct += n.mod.cdPct ?? 0; m.costPct += n.mod.costPct ?? 0;
+  }
+  return m;
+}
+/** Modificadores de uma habilidade extra de arma (pelo id) do tipo empunhado. */
+export function weaponModById(p: WState, id: string): Required<SkillMod> {
+  const m = { dmgPct: 0, cdPct: 0, costPct: 0 };
+  if (!p.wskills) return m;
+  const f = weaponFamily(p.equipped.mainhand?.name);
+  for (const n of weaponTree(f).nodes) if (n.skillId === id && p.wskills[n.id] && n.mod) {
     m.dmgPct += n.mod.dmgPct ?? 0; m.cdPct += n.mod.cdPct ?? 0; m.costPct += n.mod.costPct ?? 0;
   }
   return m;

@@ -1,4 +1,5 @@
 import { CLASS_BY_ID } from './classes';
+import { CLASS_EXTRA } from './extraskills';
 import { ABILITIES, Ability, ABILITY_NAMES, ABILITY_SHORT, Bonus, addBonus, bonusLines } from './rules';
 
 /**
@@ -12,7 +13,7 @@ export interface TreeNode {
   id: string; name: string; icon: string; desc: string;
   branch: number; tier: number; cost: number;
   req?: string;
-  skill?: number; mod?: SkillMod;
+  skill?: number; skillId?: string; mod?: SkillMod;
   bonus?: Bonus;
   ab?: Partial<Record<Ability, number>>;
 }
@@ -60,12 +61,24 @@ export function skillTree(cid: string): Tree {
       { id: `s${i}c`, name: 'Maestria', icon: '👑', desc: dmgKind ? '+30% de dano e -10% de recarga' : '+30% de efeito e -10% de recarga', branch: i, tier: 3, cost: 2, req: `s${i}b`, skill: i, mod: { dmgPct: 0.3, cdPct: 0.1 } },
     );
   });
+  // habilidades extras (4 por classe): mesmos 3 passos, aplicados pelo id da habilidade
+  (CLASS_EXTRA[cid] ?? []).forEach((sk, k) => {
+    const bi = cls.skills.length + k;
+    const dmgKind = !['heal', 'buff'].includes(sk.kind);
+    branches.push({ name: sk.name, icon: sk.icon });
+    nodes.push(
+      { id: `x${k}a`, name: dmgKind ? 'Potência' : 'Intensidade', icon: '💥', desc: dmgKind ? '+18% de dano da habilidade' : '+20% de efeito', branch: bi, tier: 1, cost: 1, skillId: sk.id, mod: { dmgPct: dmgKind ? 0.18 : 0.2 } },
+      { id: `x${k}b`, name: 'Eficiência', icon: '⏳', desc: '-15% de recarga e -15% de custo de energia', branch: bi, tier: 2, cost: 1, req: `x${k}a`, skillId: sk.id, mod: { cdPct: 0.15, costPct: 0.15 } },
+      { id: `x${k}c`, name: 'Maestria', icon: '👑', desc: dmgKind ? '+30% de dano e -10% de recarga' : '+30% de efeito e -10% de recarga', branch: bi, tier: 3, cost: 2, req: `x${k}b`, skillId: sk.id, mod: { dmgPct: 0.3, cdPct: 0.1 } },
+    );
+  });
+  const trainBranch = branches.length;
   branches.push({ name: 'Treino', icon: '📜' });
   const ps = PASSIVES[cls.style];
   ps.forEach((p, k) => {
     const b: Bonus = { ...p.b };
     if (k === 2 && FLAVOR[cid]) addBonus(b, FLAVOR[cid]);
-    nodes.push({ id: `p${k}`, name: p.name, icon: p.icon, desc: bonusLines(b).join(', '), branch: 3, tier: k + 1, cost: k === 2 ? 2 : 1, req: k ? `p${k - 1}` : undefined, bonus: b });
+    nodes.push({ id: `p${k}`, name: p.name, icon: p.icon, desc: bonusLines(b).join(', '), branch: trainBranch, tier: k + 1, cost: k === 2 ? 2 : 1, req: k ? `p${k - 1}` : undefined, bonus: b });
   });
   return (treeCache[cid] = { title: `Árvore de Habilidades — ${cls.name}`, branches, nodes });
 }
@@ -130,6 +143,14 @@ export function treeTotals(p: ProgState): { bonus: Bonus; ab: Partial<Record<Abi
     }
   }
   return { bonus, ab };
+}
+/** Modificadores da árvore da classe para uma habilidade extra (pelo id). */
+export function skillModById(p: ProgState, id: string): Required<SkillMod> {
+  const m = { dmgPct: 0, cdPct: 0, costPct: 0 };
+  for (const n of skillTree(p.classId).nodes) if (n.skillId === id && p.skills?.[n.id] && n.mod) {
+    m.dmgPct += n.mod.dmgPct ?? 0; m.cdPct += n.mod.cdPct ?? 0; m.costPct += n.mod.costPct ?? 0;
+  }
+  return m;
 }
 /** Modificadores acumulados para a habilidade de índice i (0–2). */
 export function skillMod(p: ProgState, i: number): Required<SkillMod> {

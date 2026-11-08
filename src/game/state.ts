@@ -37,6 +37,8 @@ export interface PlayerState {
   explored?: string;
   /** nós comprados nas árvores de habilidade e de atributos */
   skills?: Record<string, 1>;
+  /** habilidades extras escolhidas para as 3 casas livres da barra (teclas 7–9): ids de `extraskills.ts` ou '' */
+  bar?: string[];
   /** nós comprados na árvore de armas (`familia:no`) */
   wskills?: Record<string, 1>;
   attrs?: Record<string, 1>;
@@ -219,6 +221,7 @@ export function loadSave(n = activeSlot): PlayerState | null {
     if (!p.tone || !race.tones.includes(p.tone)) p.tone = race.tones[0]; // migra saves anteriores à nova arte
     delete p.hair;
     if (p.look) p.look = sanitizeLook(p.look);
+    if (p.bar) p.bar = [0, 1, 2].map((i) => (typeof p.bar![i] === 'string' ? p.bar![i] : ''));
     migrateEquipment(p);
     p.mats ??= {};
     if (!p.story) p.story = { fragments: [], seen: {}, ended: false };

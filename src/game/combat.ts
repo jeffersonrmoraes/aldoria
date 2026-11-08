@@ -3,16 +3,32 @@
 import { Buff, SkillDef, d20, roll } from '../data/rules';
 import { CLASS_BY_ID } from '../data/classes';
 import { RACE_BY_ID } from '../data/races';
-import { skillMod } from '../data/progression';
-import { weaponSkillMod } from '../data/weapontree';
+import { skillMod, skillModById } from '../data/progression';
+import { weaponModById, weaponSkillMod } from '../data/weapontree';
+import { EXTRA_BY_ID } from '../data/extraskills';
 import { WEAPON_SKILLS, weaponFamily } from '../data/weaponskills';
 import { MobDef } from '../data/monsters';
 import { Derived, PlayerState } from './state';
 
 /** Habilidade com os bônus da árvore de habilidades aplicados (dano, recarga, custo). */
+/** Habilidade extra (de classe ou do tipo de arma empunhado) com os bônus da árvore aplicados. */
+function extraAt(p: PlayerState, id?: string): SkillDef | undefined {
+  const base = id ? EXTRA_BY_ID[id] : undefined;
+  if (!base || p.level < base.unlock) return undefined;
+  const isClass = base.id.startsWith('c_');
+  if (isClass ? base.id.slice(2, base.id.lastIndexOf('_x')) !== p.classId : base.id.slice(2, base.id.lastIndexOf('_x')) !== weaponFamily(p.equipped.mainhand?.name)) return undefined;
+  const m = isClass ? skillModById(p, base.id) : weaponModById(p, base.id);
+  return {
+    ...base,
+    mult: base.mult != null ? +(base.mult * (1 + m.dmgPct)).toFixed(3) : base.mult,
+    dur: base.dur != null && base.kind === 'buff' ? Math.round(base.dur * (1 + m.dmgPct)) : base.dur,
+    cd: Math.round(base.cd * (1 - m.cdPct)), cost: Math.max(4, Math.round(base.cost * (1 - m.costPct))),
+  };
+}
 export function skillAt(p: PlayerState, i: number): SkillDef | undefined {
   if (i === 3) return RACE_BY_ID[p.raceId].racial;
-  if (i < 0 || i > 5) return undefined;
+  if (i < 0 || i > 8) return undefined;
+  if (i >= 6) return extraAt(p, p.bar?.[i - 6]);
   const wi = i - 4;
   const base = i >= 4 ? WEAPON_SKILLS[weaponFamily(p.equipped.mainhand?.name)][wi] : CLASS_BY_ID[p.classId].skills[i];   // 4–5: habilidades da arma empunhada
   if (!base) return undefined;
