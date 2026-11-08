@@ -1,5 +1,5 @@
 // Pouso do Viajante: edifícios com interior. Coordenadas em tiles relativas ao centro da vila.
-import { CX, CY } from './mapdims';
+import { CX, CY, FOUNTAIN } from './mapdims';
 export type BuildingKind = 'tavern' | 'forge' | 'church' | 'shop' | 'barracks' | 'tower';
 export interface BuildingNpc { id: string; name: string }
 export interface BuildingDef {
@@ -33,6 +33,14 @@ export const VILLAGES: VillageDef[] = [
   { id: 'oasis', zone: 'v_deserto', name: 'Oásis do Escaravelho', biome: 'desert', cx: 500, cy: 382, r: VILLAGE_R },
 ];
 type VB = [string, string, BuildingKind, string, string];   // id, nome, tipo, id do NPC, nome do NPC
+/** Fontes da praça de cada cidade: pontos de teleporte (descobertos ao visitar). */
+export interface Waypoint { id: string; name: string; x: number; y: number; zone: string; biome: string }
+export const WAYPOINTS: Waypoint[] = [
+  { id: 'pouso', name: 'Pouso do Viajante', x: FOUNTAIN.x, y: FOUNTAIN.y, zone: 'town', biome: 'town' },
+  ...VILLAGES.map((v) => ({ id: v.id, name: v.name, x: v.cx, y: v.cy, zone: v.zone, biome: v.biome })),
+];
+export const TELEPORT_COST = 25;
+
 const QUAD: { x0: number; y0: number; facing: 'S' | 'N' }[] = [
   { x0: -11, y0: -10, facing: 'S' }, { x0: 5, y0: -10, facing: 'S' }, { x0: -11, y0: 5, facing: 'N' }, { x0: 5, y0: 5, facing: 'N' },
 ];

@@ -3,11 +3,11 @@ import { RACES, RACE_BY_ID } from '../data/races';
 import { ABILITIES, ABILITY_NAMES, ABILITY_SHORT, MAX_LEVEL, SkillDef } from '../data/rules';
 import { BAG_SIZE, PlayerState, addItem, derive, deleteSave, equipBlock, equipWarn, gainXp, listSaves, loadSave, newPlayer, weaponPenalty, player, save, setPlayer, setSlot } from '../game/state';
 import { Craftable, Item, Rarity, STARTER_WEAPONS, craftItem, craftables, findBase, itemValue, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, SHOP_REFRESH_COST, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
-import { QUESTS, ZONES, ZoneDef, zoneAt } from '../chapters/chapter1';
+import { H, QUESTS, W, ZONES, ZoneDef, zoneAt } from '../chapters/chapter1';
 import { audioCfg, setAudio, sfx } from '../game/audio';
-import { BUILDINGS, townOf } from '../chapters/town';
+import { BUILDINGS, TELEPORT_COST, WAYPOINTS, townOf } from '../chapters/town';
 import { MapKind, drawMap, resetMapCache } from './mapview';
-import { exploredVersion, isExplored, mapSource } from '../game/mapdata';
+import { exploredVersion, isExplored, mapSource, revealWhere } from '../game/mapdata';
 import { CURRENT_CHAPTER } from '../chapters';
 import { DUNGEONS, EPILOGUE, FRAGMENTS, FRAGMENT_BY_ID, MAIN_QUESTS, SAGE_INTRO } from '../chapters/story1';
 import { frameIcon, itemFrameName } from '../art/art';
@@ -330,6 +330,7 @@ export function initHud() {
     onLog(`Você renasceu em Pouso do Viajante${lost ? ` (perdeu ${lost} de ouro)` : ''}.`, '#ff8a8a');
   });
   bus.on('npc', openNpc);
+  bus.on('fountain', () => { curWin = 'npc'; selItem = null; renderFountain(); });
   bus.removeAllListeners('banner'); bus.removeAllListeners('story');
   bus.on('banner', (name: string) => toast(name, 2800, 26));
   bus.on('story', (e: { kind: string; id: string }) => {
@@ -679,6 +680,56 @@ function renderHelp() {
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
 // ======================== NPCs ========================
+function renderFountain() {
+  const here = mapSource ? mapSource.pos() : null;
+  const known = player.wp ?? [];
+  const rows = WAYPOINTS.map((w) => {
+    const ok = known.includes(w.id);
+    const near = !!here && Math.hypot(here.x - (w.x + 0.5) * 16, here.y - (w.y + 0.5) * 16) < 120;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:5px 0;padding:6px 8px;border:1px solid #3a3358;border-radius:6px;${ok ? '' : 'opacity:.55'}">
+      <span>${ok ? '⛲' : '❔'} <b>${ok ? w.name : 'Fonte não descoberta'}</b>${near ? ' <i style="color:#9ad8ff">(você está aqui)</i>' : ''}</span>
+      ${ok && !near ? `<button class="tp" data-id="${w.id}" ${player.gold < TELEPORT_COST ? 'disabled' : ''}>✨ Teleportar · ${TELEPORT_COST} 🪙</button>` : ''}</div>`;
+  }).join('');
+  const w = setWin(`<h3>⛲ Fonte de Teleporte${closeBtn}</h3>
+    <div style="font-size:12px;color:#a79cc4;margin-bottom:6px">A água desta fonte é banhada por magia antiga. Toque nas fontes das cidades para descobri-las e viaje entre elas.</div>${rows}`);
+  (w.firstElementChild as HTMLElement).style.width = 'min(520px,94vw)';
+  bindClose(w);
+  qa<HTMLElement>('.tp', w).forEach((b) => (b.onclick = () => {
+    if (player.gold < TELEPORT_COST) return;
+    player.gold -= TELEPORT_COST; save();
+    sfx.enchant();
+    bus.emit('teleport', b.dataset.id);
+    closeWin();
+  }));
+}
+
+/** Preço do mapa de cada região (cartógrafo: compre em qualquer cidade ou vila). */
+const MAP_PRICE: Record<string, number> = { fields: 60, forest: 150, crypt: 300, orcs: 500, ogre: 750, swamp: 1000, desert: 1400 };
+const MAP_ALL = 3200;
+const regionOf = (z: string) => (z === 'town' ? 'fields' : ZONES[z]?.biome ?? z);
+function mapShopHtml(): string {
+  const pos = mapSource?.pos();
+  const inTown = !!pos && !!ZONES[zoneAt(Math.floor(pos.x / 16), Math.floor(pos.y / 16))]?.safe;
+  const rows: string[] = [];
+  for (const [id, price] of Object.entries(MAP_PRICE)) {
+    let all = true;
+    for (let ty = 2; ty < H && all; ty += 4) for (let tx = 2; tx < W; tx += 4) if (regionOf(zoneAt(tx, ty)) === id && !isExplored(tx, ty)) { all = false; break; }
+    if (all) continue;
+    rows.push(`<button class="mbuy" data-r="${id}" ${!inTown || player.gold < price ? 'disabled' : ''} style="padding:3px 10px;margin:2px">📜 ${ZONES[id].name} · ${price} 🪙</button>`);
+  }
+  if (!rows.length) return `<div style="margin-top:6px;color:#7ee787">🗺️ Você já conhece todo o reino.</div>`;
+  rows.push(`<button class="mbuy" data-r="all" ${!inTown || player.gold < MAP_ALL ? 'disabled' : ''} style="padding:3px 10px;margin:2px;border-color:var(--gold);color:var(--gold)">🗺️ Mapa completo do reino · ${MAP_ALL} 🪙</button>`);
+  return `<div style="margin-top:8px;padding-top:6px;border-top:1px solid #3a3358"><b style="color:var(--gold)">🧭 Cartógrafo</b> <span style="color:#a79cc4">— compre o mapa de uma região para revelá-la (você também pode descobri-la andando).${inTown ? '' : ' <i>Só é possível comprar dentro de uma cidade ou vila.</i>'}</span><div style="margin-top:4px">${rows.join('')}</div></div>`;
+}
+function buyMap(r: string) {
+  const price = r === 'all' ? MAP_ALL : MAP_PRICE[r];
+  if (!price || player.gold < price) return;
+  player.gold -= price;
+  revealWhere((tx, ty) => r === 'all' || regionOf(zoneAt(Math.floor(tx), Math.floor(ty))) === r);
+  sfx.coin?.(); save();
+  bus.emit('log', `🗺️ Você comprou o mapa ${r === 'all' ? 'completo do reino' : 'de ' + ZONES[r].name} (−${price} 🪙).`, '#e8d6a6');
+}
+
 function openNpc(id: string) {
   curWin = 'npc'; selItem = null;
   if (id === 'captain') npcCaptain();
@@ -1059,9 +1110,9 @@ function renderMap() {
   const tabs = (['global', 'city'] as MapKind[]).map((k) => `<button class="mt" data-k="${k}" style="padding:3px 12px;${mapTab === k ? 'border-color:var(--gold);color:var(--gold)' : ''}">${k === 'global' ? '🗺️ Mapa Global' : '🏰 Mapa da Cidade'}</button>`).join(' ');
   const w = setWin(`<h3>Mapa${closeBtn}</h3>
     <div style="display:flex;gap:6px;margin-bottom:8px">${tabs}</div>
-    <canvas id="mapc" style="max-width:100%;max-height:74vh;width:auto;height:auto;border-radius:6px;display:block;margin:0 auto"></canvas>
+    <canvas id="mapc" style="max-width:100%;max-height:58vh;width:auto;height:auto;border-radius:6px;display:block;margin:0 auto"></canvas>
     <div id="maplg" style="font-size:12px;line-height:1.6;margin-top:8px;color:#cfc8e8"></div>`);
-  (w.firstElementChild as HTMLElement).style.width = 'min(960px,96vw)';
+  (w.firstElementChild as HTMLElement).style.width = 'min(960px,96vw)'; (w.firstElementChild as HTMLElement).style.maxHeight = '92vh'; (w.firstElementChild as HTMLElement).style.overflowY = 'auto';
   bindClose(w);
   const cv = q<HTMLCanvasElement>('#mapc');
   let lastKey = '';
@@ -1071,9 +1122,10 @@ function renderMap() {
     if (!force && key === lastKey) return;
     lastKey = key;
     drawMap(mapTab, cv);
-    q('#maplg').innerHTML = mapLegend(mapTab);
+    q('#maplg').innerHTML = mapLegend(mapTab) + (mapTab === 'global' ? mapShopHtml() : '');
   };
   qa<HTMLElement>('.mt', w).forEach((b) => (b.onclick = () => { mapTab = b.dataset.k as MapKind; renderMap(); }));
+  q('#maplg').onclick = (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('.mbuy'); if (b && !(b as HTMLButtonElement).disabled) { buyMap(b.dataset.r!); paint(true); } };
   paint(true);
   mapTimer = window.setInterval(() => paint(), 500);
 }
@@ -1086,9 +1138,9 @@ function mapLegend(kind: MapKind): string {
   }
   const zrows = Object.values(ZONES).map((z) => {
     let seen = false;
-    for (let ty = 2; ty < 156 && !seen; ty += 4) for (let tx = 2; tx < 210; tx += 4) if (zoneAt(tx, ty) === z.id && isExplored(tx, ty)) { seen = true; break; }
-    return seen ? ok(`<b>${z.name}</b> <i>(${z.levels})</i>`) : no('Região desconhecida');
-  });
+    for (let ty = 2; ty < H && !seen; ty += 4) for (let tx = 2; tx < W; tx += 4) if (zoneAt(tx, ty) === z.id && isExplored(tx, ty)) { seen = true; break; }
+    return seen ? ok(`<b>${z.name}</b> <i>(${z.levels})</i>`) : z.safe ? '' : no('Região desconhecida');
+  }).filter(Boolean);
   const drows = DUNGEONS.map((d) => (isExplored(d.entrance.tx, d.entrance.ty) ? ok(`<b>${d.name}</b> <i>(${d.levels})</i>`) : no('Masmorra não descoberta')));
   return `<div><b style="color:var(--gold)">Biomas</b> — ${zrows.join(' · ')}</div><div style="margin-top:4px"><b style="color:var(--gold)">Masmorras</b> — ${drows.join(' · ')}</div>`;
 }

@@ -4,7 +4,7 @@ import { QUESTS, TILE, WorldData, ZONES, ZoneDef, zoneAt, CX, CY, GATE_HALF } fr
 import { TOWN_R, FOUNTAIN } from '../chapters/mapdims';
 import { DUNGEON_BY_ID, DungeonDef, FRAGMENT_BY_ID, MAIN_QUESTS } from '../chapters/story1';
 import { generateDungeon } from '../chapters/dungeon';
-import { BUILDINGS, BuildingDef, VILLAGES, doorTile, FACE_VEC } from '../chapters/town';
+import { BUILDINGS, BuildingDef, VILLAGES, WAYPOINTS, doorTile, FACE_VEC } from '../chapters/town';
 import { sfx, setMusicZone, startMusic } from '../game/audio';
 import { reveal, setMapSource } from '../game/mapdata';
 import { bench, buildBuilding, buildTownWall, flowerBed, lampPost } from './buildings';
@@ -122,7 +122,7 @@ export class World3D {
   private dead = false;
   private relentlessAt = 0;
   private zoneId = '';
-  private hudAt = 0; private saveAt = 0; private zoneChk = 0;
+  private hudAt = 0; private saveAt = 0; private zoneChk = 0; private wpAt = 0;
   private now = 0;
   private timers: { at: number; fn: () => void }[] = [];
   private fx: Fx[] = [];
@@ -328,6 +328,20 @@ export class World3D {
     return true;
   }
 
+  private nearFountain() {
+    if (this.loc !== this.over || this.dead) return null;
+    for (const w of WAYPOINTS) if (Math.hypot(this.p.x - (w.x + 0.5) * TILE, this.p.y - (w.y + 0.5) * TILE) < 58) return w;
+    return null;
+  }
+
+  private teleportTo(id: string) {
+    const w = WAYPOINTS.find((q) => q.id === id);
+    if (!w || this.loc !== this.over || this.dead) return;
+    this.p.x = (w.x + 0.5) * TILE; this.p.y = (w.y + 2.9) * TILE;
+    this.target = null; this.pending = null; this.chase = false; this.goal = null;
+    bus.emit('log', `✨ Você é envolvido pela luz da fonte e reaparece em ${w.name}.`, '#9ad8ff');
+  }
+
   private nearPortal() {
     for (const p of this.loc.portals) if (this.distTo(p) < 34) return p;
     return null;
@@ -454,7 +468,7 @@ export class World3D {
       else if (act === 'potHeal') this.usePotion('heal');
       else if (act === 'potEnergy') this.usePotion('energy');
       else if (k === 'enter') this.openChat();
-      else if (k === 'e') { const n = this.nearNpc(); if (n) bus.emit('npc', n.id); else { const pt = this.nearPortal(); if (pt) this.usePortal(pt); } }
+      else if (k === 'e') { const n = this.nearNpc(); if (n) bus.emit('npc', n.id); else { const pt = this.nearPortal(); if (pt) this.usePortal(pt); else if (this.nearFountain()) bus.emit('fountain'); } }
     });
     onW('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
     onW('blur', () => this.keys.clear());
@@ -463,6 +477,7 @@ export class World3D {
 
     const handlers: [string, (...a: any[]) => void][] = [
       ['skill', (i: number) => this.useSkill(i)],
+      ['teleport', (id: string) => this.teleportTo(id)],
       ['potion', (k: 'heal' | 'energy') => this.usePotion(k)],
       ['blessing', (_n: string, buff: Buff, ms: number) => { this.buffs.push({ until: this.now + ms, buff }); }],
       ['recalc', () => { applyEquipment(this.pv as SkinnedActor, player.classId, player.equipped); this.d = derive(player); player.hp = Math.min(player.hp, this.d.maxHp); player.en = Math.min(player.en, this.d.maxEn); }],
@@ -944,6 +959,12 @@ export class World3D {
       if (zn !== this.zoneId) { this.zoneId = zn; setMusicZone(zn); bus.emit('zone', this.loc.zones[zn]); }
     }
     this.updateFinds(now);
+    this.terrain.update?.(now / 1000);
+    if (this.loc === this.over && now > this.wpAt) {
+      this.wpAt = now + 700;
+      const w = WAYPOINTS.find((q) => q.zone === this.zoneId);
+      if (w && !(player.wp ??= []).includes(w.id)) { player.wp.push(w.id); bus.emit('log', `✨ Fonte de ${w.name} descoberta! Toque nela ([E]) para teleportar entre as fontes.`, '#9ad8ff'); save(); }
+    }
     if (this.loc === this.over && now > this.revealAt) { this.revealAt = now + 400; reveal(this.p.x / TILE, this.p.y / TILE, 12); }
     if (now > this.hudAt) { this.hudAt = now + 100; this.emitHud(now); }
     if (now > this.saveAt) { this.saveAt = now + 8000; player.pos = this.loc === this.over ? { x: this.p.x, y: this.p.y } : { ...this.overPos }; save(); }
@@ -1760,6 +1781,7 @@ export class World3D {
     const t = this.target && !this.target.dead ? this.target : null;
     const n = this.nearNpc();
     const pt = n ? null : this.nearPortal();
+    const nf = n || pt ? null : this.nearFountain();
     bus.emit('hud', {
       hp: player.hp, maxHp: this.d.maxHp, en: player.en, maxEn: this.d.maxEn,
       xp: player.xp, xpCur: xpForCurrent(player.level), xpNext: xpForNext(player.level),
@@ -1769,7 +1791,7 @@ export class World3D {
       boss: this.hudBoss(time),
       pcast: this.pending ? Math.min(1, (time - this.pending.start) / (this.pending.end - this.pending.start)) : null,
       target: t ? { name: t.def.name, level: t.def.level, hp: t.hp, max: t.max, boss: !!t.def.boss } : null,
-      npc: n ? `[E] Falar com ${n.name}` : pt ? (pt.kind === 'out' ? (this.loc.interior ? '[E] Sair' : '[E] Sair da masmorra') : pt.kind === 'door' ? `[E] Entrar: ${BUILDINGS.find((b) => b.id === pt.building)!.name}` : `[E] Entrar: ${DUNGEON_BY_ID[pt.dungeon].name}`) : null,
+      npc: n ? `[E] Falar com ${n.name}` : pt ? (pt.kind === 'out' ? (this.loc.interior ? '[E] Sair' : '[E] Sair da masmorra') : pt.kind === 'door' ? `[E] Entrar: ${BUILDINGS.find((b) => b.id === pt.building)!.name}` : `[E] Entrar: ${DUNGEON_BY_ID[pt.dungeon].name}`) : nf ? `[E] Tocar na fonte de ${nf.name}` : null,
     });
   }
 }

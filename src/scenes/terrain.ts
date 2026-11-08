@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { F } from '../art/atlas';
 import { H, T, TILE, W, WorldData, zoneAt, ZONES } from '../chapters/chapter1';
 import { FOUNTAIN } from '../chapters/mapdims';
-import { VILLAGES } from '../chapters/town';
+import { VILLAGES, WAYPOINTS } from '../chapters/town';
 
 const NAME: Record<number, string> = {};
 for (const [k, v] of Object.entries(T)) NAME[v as number] = k;
@@ -30,6 +30,7 @@ export interface Terrain {
   houses: House[];
   groundY(px: number, py: number): number;
   solid: Uint8Array;
+  update?(t: number): void;
 }
 
 function col(g: THREE.BufferGeometry, hex: string) {
@@ -135,7 +136,7 @@ export function buildTerrain(world: WorldData): Terrain {
   const solid = new Uint8Array(W * H);
   const BLOCK = new Set(['water', 'tree', 'tree2', 'bush', 'ftree', 'ftree2', 'red_rock', 'red_tree', 'swamp_tree', 'cactus', 'sandrock', 'grave', 'grave2', 'roof_l', 'roof', 'roof_r', 'wall_l', 'wall', 'wall_w', 'wall_r', 'door']);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (BLOCK.has(names[y][x])) solid[y * W + x] = 1;
-  const FOUNTAINS = [FOUNTAIN, ...VILLAGES.map((v) => ({ x: v.cx, y: v.cy }))];
+  const FOUNTAINS = WAYPOINTS;
   for (const F0 of FOUNTAINS) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) solid[(F0.y + dy) * W + F0.x + dx] = 1; // fonte da praça (3×3)
 
   // ---- adereços instanciados ----
@@ -311,18 +312,64 @@ export function buildTerrain(world: WorldData): Terrain {
     group.add(h);
   }
 
-  // ---- fonte da praça ----
-  for (const F0 of FOUNTAINS) {
-  const fountain = new THREE.Group();
-  fountain.position.set(F0.x + 0.5, groundY(F0.x * TILE, F0.y * TILE), F0.y + 0.5);
-  fountain.scale.setScalar(1.5);
-  const stone = new THREE.MeshLambertMaterial({ color: '#b8bccb' });
-  fountain.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.05, 0.4, 16).translate(0, 0.2, 0), stone), { castShadow: true, receiveShadow: true }));
-  fountain.add(new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.82, 0.04, 16).translate(0, 0.38, 0), new THREE.MeshPhongMaterial({ color: '#4aa3e8', shininess: 100 })));
-  fountain.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.0, 8).translate(0, 0.8, 0), stone), { castShadow: true }));
-  fountain.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8).translate(0, 1.4, 0), new THREE.MeshPhongMaterial({ color: '#9ad8ff', emissive: '#2a6aa0', transparent: true, opacity: 0.85 })));
-  group.add(fountain);
+  // ---- fontes das praças (também pontos de teleporte) ----
+  const GLOW: Record<string, string> = { town: '#ffd870', forest: '#6aff9a', crypt: '#a0a8ff', orcs: '#ff8a4a', ogre: '#d08aff', swamp: '#8affb8', desert: '#ffc94a' };
+  const anims: ((t: number) => void)[] = [];
+  const stoneD = new THREE.MeshLambertMaterial({ color: '#8f93a6' });
+  const stoneL = new THREE.MeshLambertMaterial({ color: '#c9ccda' });
+  const waterM = new THREE.MeshPhongMaterial({ color: '#4aa3e8', shininess: 100, transparent: true, opacity: 0.9 });
+  const mesh = (g: THREE.BufferGeometry, m: THREE.Material, shadow = true) => Object.assign(new THREE.Mesh(g, m), { castShadow: shadow, receiveShadow: true });
+  const dummy = new THREE.Object3D();
+  for (const wp of WAYPOINTS) {
+    const glow = new THREE.Color(GLOW[wp.biome] ?? '#ffd870');
+    const glowM = new THREE.MeshPhongMaterial({ color: glow, emissive: glow, emissiveIntensity: 0.9, transparent: true, opacity: 0.92 });
+    const f = new THREE.Group();
+    f.position.set(wp.x + 0.5, groundY(wp.x * TILE, wp.y * TILE), wp.y + 0.5);
+    f.scale.setScalar(1.5);
+    f.add(mesh(new THREE.CylinderGeometry(1.3, 1.4, 0.1, 20).translate(0, 0.05, 0), stoneD));        // degraus
+    f.add(mesh(new THREE.CylinderGeometry(1.15, 1.25, 0.12, 20).translate(0, 0.16, 0), stoneL));
+    f.add(mesh(new THREE.CylinderGeometry(0.95, 1.05, 0.34, 20).translate(0, 0.29, 0), stoneL));       // bacia
+    f.add(mesh(new THREE.TorusGeometry(0.98, 0.07, 8, 28).rotateX(Math.PI / 2).translate(0, 0.46, 0), stoneD)); // borda
+    f.add(new THREE.Mesh(new THREE.CylinderGeometry(0.88, 0.88, 0.04, 20).translate(0, 0.42, 0), waterM));
+    f.add(mesh(new THREE.CylinderGeometry(0.1, 0.16, 0.9, 8).translate(0, 0.85, 0), stoneL));          // coluna
+    f.add(mesh(new THREE.CylinderGeometry(0.5, 0.2, 0.14, 14).translate(0, 1.22, 0), stoneL));         // bacia alta
+    f.add(mesh(new THREE.TorusGeometry(0.5, 0.045, 6, 20).rotateX(Math.PI / 2).translate(0, 1.29, 0), stoneD));
+    f.add(new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.03, 16).translate(0, 1.28, 0), waterM));
+    f.add(mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.35, 6).translate(0, 1.45, 0), stoneL));
+    // pilares com orbes brilhantes ao redor
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const px = Math.cos(a) * 1.12, pz = Math.sin(a) * 1.12;
+      f.add(mesh(new THREE.CylinderGeometry(0.06, 0.09, 0.55, 6).translate(px, 0.5, pz), stoneD));
+      f.add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6).translate(px, 0.84, pz), glowM));
+    }
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.17, 0).scale(1, 1.5, 1), glowM);
+    f.add(gem);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.03, 6, 48).rotateX(Math.PI / 2).translate(0, 0.03, 0), glowM);
+    f.add(ring);
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.015, 6, 48).rotateX(Math.PI / 2).translate(0, 0.03, 0), glowM);
+    f.add(ring2);
+    const N = 30;
+    const drops = new THREE.InstancedMesh(new THREE.SphereGeometry(0.035, 5, 4), new THREE.MeshPhongMaterial({ color: '#cfeeff', emissive: '#4a9ad8', transparent: true, opacity: 0.85 }), N);
+    drops.frustumCulled = false;
+    f.add(drops);
+    group.add(f);
+    const ph = (wp.x * 7 + wp.y * 3) % 6;
+    anims.push((t) => {
+      gem.rotation.y = t * 1.4 + ph; gem.position.y = 1.78 + Math.sin(t * 2 + ph) * 0.06;
+      ring.rotation.y = t * 0.35; ring2.rotation.y = -t * 0.25;
+      glowM.emissiveIntensity = 0.7 + 0.3 * Math.sin(t * 2.2 + ph);
+      for (let i = 0; i < N; i++) {
+        const top = i < N / 3;                             // um terço sobe da bacia alta, o resto jorra do topo
+        const u = (t * 0.8 + i / N * 3) % 1, a = i * 2.399 + ph;
+        const r = top ? 0.5 * u : 0.95 * u;
+        const y = top ? 1.45 + 0.9 * u - 1.55 * u * u : 1.3 + 1.05 * u - 1.9 * u * u;
+        dummy.position.set(Math.cos(a) * r, Math.max(y, 0.44), Math.sin(a) * r);
+        dummy.updateMatrix(); drops.setMatrixAt(i, dummy.matrix);
+      }
+      drops.instanceMatrix.needsUpdate = true;
+    });
   }
 
-  return { group, houses, groundY, solid };
+  return { group, houses, groundY, solid, update: (t: number) => { for (const f of anims) f(t); } };
 }

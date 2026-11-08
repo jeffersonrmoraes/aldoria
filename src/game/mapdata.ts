@@ -41,6 +41,23 @@ export function reveal(tx: number, ty: number, r = 12): boolean {
   return changed;
 }
 
+/** Revela todas as células cujo centro (em tiles) satisfaz o filtro (mapa comprado). Retorna quantas células novas. */
+export function revealWhere(pred: (tx: number, ty: number) => boolean): number {
+  const e = getExplored();
+  let n = 0;
+  for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+    if (e[gy * GW + gx]) continue;
+    if (pred(gx * MCELL + MCELL / 2, gy * MCELL + MCELL / 2)) { e[gy * GW + gx] = 1; n++; }
+  }
+  if (n) {
+    exploredVersion++;
+    let s = '';
+    for (let i = 0; i < e.length; i++) s += e[i] ? '1' : '0';
+    player.explored = s;
+  }
+  return n;
+}
+
 export const isExplored = (tx: number, ty: number) => !!getExplored()[Math.floor(ty / MCELL) * GW + Math.floor(tx / MCELL)];
 
 /** Fonte de dados do mundo para a janela de mapa (registrada pela cena). */

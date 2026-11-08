@@ -104,3 +104,7 @@ Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WE
 - **Vilas novas** (zonas seguras `v_pantano`, `v_deserto`): **Palafitas do Brejo** (110,68) e **Oásis do Escaravelho** (500,382), ligadas à estrada principal por estradas de terra.
 - **Missões**: f8 Orquídeas Fantasmas, f9 Relíquias das Dunas (achar coisas, nv 11/14), q7 Senhores do Brejo, q8 A Maldição das Dunas. Música `swamp`/`desert` em `audio.ts`.
 - Mundo mudou: **redeploy do servidor necessário** (`worldSig`); clientes antigos caem para monstros locais.
+
+## Fontes de teleporte e compra de mapas
+- **Fontes** (`WAYPOINTS` em `town.ts`: Pouso + 6 vilas; modelo em `terrain.ts`): bacia dupla, degraus, pilares com orbes, gema giratória, anéis rúnicos e jorros animados (`Terrain.update(t)`), cor por bioma. Ao entrar na zona de uma cidade/vila a fonte é **descoberta** (`PlayerState.wp`). **[E]** perto da fonte (`nearFountain` em `World3D.ts`) abre a janela `renderFountain` (`ui.ts`): teleporta para qualquer fonte descoberta por `TELEPORT_COST` = 25 de ouro (evento `teleport` → `teleportTo`). Só no mundo aberto.
+- **Mapa comprável** (aba Mapa Global, "🧭 Cartógrafo", `mapShopHtml`/`buyMap` em `ui.ts`): compra o mapa de uma região (`MAP_PRICE`: 60–1400 de ouro) ou do reino todo (3200); só dentro de cidade/vila. Revela as células com `revealWhere` (`mapdata.ts`); andar continua revelando o mapa normalmente.

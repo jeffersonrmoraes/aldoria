@@ -35,6 +35,8 @@ export interface PlayerState {
   story: { fragments: string[]; seen: Record<string, boolean>; ended: boolean };
   /** células do mapa já exploradas ('0'/'1') */
   explored?: string;
+  /** fontes (pontos de teleporte) descobertas: ids de `WAYPOINTS` */
+  wp?: string[];
   /** nós comprados nas árvores de habilidade e de atributos */
   skills?: Record<string, 1>;
   /** habilidades extras escolhidas para as 3 casas livres da barra (teclas 7–9): ids de `extraskills.ts` ou '' */
