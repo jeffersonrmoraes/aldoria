@@ -1,6 +1,6 @@
 // Retratos 3D do personagem (criação e HUD): renderiza o modelo em um canvas auxiliar.
 import * as THREE from 'three';
-import { playerActor } from './actors';
+import { applyEquipment, playerActor } from './actors';
 import type { Look } from '../data/looks';
 
 let renderer: THREE.WebGLRenderer | null = null;
@@ -19,13 +19,14 @@ function init() {
   scene.add(sun);
 }
 
-export interface PortraitOpts { rot?: number; size?: number }
+export interface PortraitOpts { rot?: number; size?: number; equip?: Parameters<typeof applyEquipment>[2] }
 
 export function portrait(raceId: string, classId: string, tone: string, mode: 'full' | 'bust' = 'full', look?: Look | null, opts: PortraitOpts = {}): HTMLCanvasElement {
   init();
   const size = opts.size ?? 256;
   renderer!.setSize(size, size, false);
   const a = playerActor(raceId, classId, tone, look);
+  if (opts.equip) applyEquipment(a, classId, opts.equip);
   a.root.rotation.y = opts.rot ?? (mode === 'full' ? -0.45 : -0.25);
   a.update(0.4, 0);
   scene.add(a.root);

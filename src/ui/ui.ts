@@ -1,8 +1,8 @@
 import { CLASSES, CLASS_BY_ID, ARMOR_NAMES } from '../data/classes';
 import { RACES, RACE_BY_ID } from '../data/races';
 import { ABILITIES, ABILITY_NAMES, ABILITY_SHORT, MAX_LEVEL } from '../data/rules';
-import { BAG_SIZE, PlayerState, addItem, derive, deleteSave, equipBlock, gainXp, listSaves, loadSave, newPlayer, player, save, setPlayer, setSlot } from '../game/state';
-import { Item, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
+import { BAG_SIZE, PlayerState, addItem, derive, deleteSave, equipBlock, equipWarn, gainXp, listSaves, loadSave, newPlayer, weaponPenalty, player, save, setPlayer, setSlot } from '../game/state';
+import { Item, STARTER_WEAPONS, findBase, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
 import { QUESTS, ZONES, ZoneDef, zoneAt } from '../chapters/chapter1';
 import { audioCfg, setAudio, sfx } from '../game/audio';
 import { BUILDINGS, townOf } from '../chapters/town';
@@ -110,16 +110,16 @@ export function showMenu(start: () => void) {
   }));
 }
 
-type CTab = 'race' | 'class' | 'eyes' | 'outfit' | 'height' | 'skin';
+type CTab = 'race' | 'class' | 'weapon' | 'eyes' | 'outfit' | 'height' | 'skin';
 const CTABS: { id: CTab; icon: string; name: string }[] = [
-  { id: 'race', icon: '🧝', name: 'Raça' }, { id: 'class', icon: '⚔️', name: 'Classe' }, 
+  { id: 'race', icon: '🧝', name: 'Raça' }, { id: 'class', icon: '⚔️', name: 'Classe' }, { id: 'weapon', icon: '🗡️', name: 'Arma inicial' }, 
   { id: 'eyes', icon: '👁️', name: 'Olhos' }, { id: 'outfit', icon: '👕', name: 'Roupa' }, 
   { id: 'height', icon: '📏', name: 'Altura' }, { id: 'skin', icon: '🎨', name: 'Pele' },
 ];
 const thumbCache = new Map<string, string>();
 
 function showCreate(start: () => void, slot: number) {
-  const st = { name: '', race: 'human', cls: 'fighter', tone: RACE_BY_ID['human'].tones[0], look: defaultLook(), tab: 'race' as CTab, rot: -0.45 };
+  const st = { name: '', race: 'human', cls: 'fighter', tone: RACE_BY_ID['human'].tones[0], look: defaultLook(), tab: 'race' as CTab, rot: -0.45, weapon: '' };
   const screen = h('', 'screen');
   root.innerHTML = '';
   root.appendChild(screen);
@@ -147,6 +147,14 @@ function showCreate(start: () => void, slot: number) {
         <div class="desc"><b style="color:#ffe9a8">${cls.name}</b> — ${cls.desc}<br>Dado de vida d${cls.hit} · Atributo principal: ${ABILITY_NAMES[cls.primary]} · Armadura: ${ARMOR_NAMES[cls.armor]}</div>
         <div class="stats">${ABILITIES.map((a) => `<div>${ABILITY_SHORT[a]} <b>${d.ab[a]}</b> (${d.md[a] >= 0 ? '+' : ''}${d.md[a]})</div>`).join('')}</div>
         <div class="desc">PV ${d.maxHp} · CA ${d.ac} · Energia ${d.maxEn}<br>${cls.skills.map((s) => `${s.icon} <b>${s.name}</b> (nv ${s.unlock})`).join(' · ')}</div>`;
+      case 'weapon': {
+        const cur = st.weapon || cls.startWeapon;
+        const styleName = { melee: 'corpo a corpo', ranged: 'à distância', magic: 'mágica' };
+        return `<h4>Arma inicial</h4><div class="cards">${STARTER_WEAPONS.map((w) => {
+          const pen = weaponPenalty(st.cls, findBase(w.style, w.name));
+          return `<div class="card ${w.name === cur ? 'sel' : ''}" data-w="${w.name}">${w.icon} ${w.name}<small>${w.dice[0]}d${w.dice[1]} · ${styleName[w.style]}${w.two ? ' · 2 mãos' : ''}${pen < 1 ? ` · <span style="color:#ffb454">⚠ −${Math.round((1 - pen) * 100)}% dano</span>` : ''}</small></div>`;
+        }).join('')}</div><div class="desc">Qualquer classe pode empunhar qualquer arma, mas armas fora das da sua classe causam menos dano. A arma aparece na mão do personagem.</div>`;
+      }
       case 'eyes': return `<h4>Cor dos olhos</h4>${swatches('eyeColor', EYE_COLORS)}`;
       case 'outfit': return `<h4>Cor da roupa</h4>${optGrid('outfit', OUTFITS, () => ({}), 'full')}`;
       case 'height': return `<h4>Altura</h4><input type="range" id="hgt" min="0" max="100" value="${Math.round(st.look.height * 100)}"><div class="desc" style="text-align:center">${st.look.height < 0.33 ? 'Baixo' : st.look.height > 0.66 ? 'Alto' : 'Mediano'} · ${Math.round(heightScale(st.look.height) * 100)}%</div>`;
@@ -158,13 +166,14 @@ function showCreate(start: () => void, slot: number) {
     const pv = q<HTMLCanvasElement>('#pv', screen);
     const ctx = pv.getContext('2d')!;
     ctx.clearRect(0, 0, pv.width, pv.height);
-    ctx.drawImage(portrait(st.race, st.cls, st.tone, 'full', st.look, { size: 420, rot: st.rot }), 0, 0);
+    const pl = newPlayer('x', st.race, st.cls, st.tone, undefined, st.weapon || undefined);
+    ctx.drawImage(portrait(st.race, st.cls, st.tone, 'full', st.look, { size: 420, rot: st.rot, equip: { mainhand: pl.equipped.mainhand, offhand: pl.equipped.offhand } }), 0, 0);
   };
 
   const render = () => {
     const race = RACE_BY_ID[st.race], cls = CLASS_BY_ID[st.cls];
     if (!race.tones.includes(st.tone)) st.tone = race.tones[0];
-    const d = derive(newPlayer('x', st.race, st.cls, st.tone));
+    const d = derive(newPlayer('x', st.race, st.cls, st.tone, undefined, st.weapon || undefined));
     screen.innerHTML = `<div class="create2 panel hit">
       <div class="ctitle">⚔ Forje seu herói <small>Espaço ${slot + 1}</small></div>
       <div class="ctabs">
@@ -188,7 +197,8 @@ function showCreate(start: () => void, slot: number) {
     q('#rr', screen).onclick = () => { st.rot += 0.6; drawPreview(); };
     screen.querySelectorAll<HTMLElement>('[data-t]').forEach((e) => (e.onclick = () => { st.tab = e.dataset.t as CTab; render(); }));
     screen.querySelectorAll<HTMLElement>('[data-r]').forEach((e) => (e.onclick = () => { st.race = e.dataset.r!; render(); }));
-    screen.querySelectorAll<HTMLElement>('[data-c]').forEach((e) => (e.onclick = () => { st.cls = e.dataset.c!; render(); }));
+    screen.querySelectorAll<HTMLElement>('[data-c]').forEach((e) => (e.onclick = () => { st.cls = e.dataset.c!; st.weapon = ''; render(); }));
+    screen.querySelectorAll<HTMLElement>('[data-w]').forEach((e) => (e.onclick = () => { st.weapon = e.dataset.w!; render(); }));
     screen.querySelectorAll<HTMLElement>('[data-h]').forEach((e) => (e.onclick = () => { st.tone = e.dataset.h!; render(); }));
     screen.querySelectorAll<HTMLElement>('[data-k]').forEach((e) => (e.onclick = () => { (st.look as unknown as Record<string, string>)[e.dataset.k!] = e.dataset.v!; render(); }));
     const hg = screen.querySelector<HTMLInputElement>('#hgt');
@@ -198,7 +208,7 @@ function showCreate(start: () => void, slot: number) {
     q('#go', screen).onclick = () => {
       const name = st.name.trim() || 'Aventureiro';
       setSlot(slot);
-      setPlayer(newPlayer(name, st.race, st.cls, st.tone, st.look));
+      setPlayer(newPlayer(name, st.race, st.cls, st.tone, st.look, st.weapon || undefined));
       save();
       start();
     };
@@ -479,7 +489,7 @@ function itemTip(i: Item): string {
   return `<b style="color:${RARITY_COLORS[i.rarity]}">${i.name}</b><br>
     <span style="color:#a79cc4">${RARITY_NAMES[i.rarity]} · ${SLOT_NAMES[i.slot]} · Nível ${i.minLevel}</span><br>
     ${describeItem(i)}<br>Valor: 🪙 ${fmtGold(i.value)}${bestShopHint(i)}
-    ${why ? `<br><span style="color:#ff8a8a">${why}</span>` : ''}${compare(i)}${setBlock(i)}`;
+    ${why ? `<br><span style="color:#ff8a8a">${why}</span>` : ''}${!why && equipWarn(player, i) ? `<br><span style="color:#ffb454">${equipWarn(player, i)}</span>` : ''}${compare(i)}${setBlock(i)}`;
 }
 
 function bestShopHint(i: Item): string {
@@ -665,7 +675,7 @@ function shopWindow(kind: ShopId) {
   const rare = shopStock.map((it, n) => {
     const price = buyPrice(it, cha), ok = player.gold >= price, why = equipBlock(player, it);
     return `<div class="qrow" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-    <span style="display:flex;align-items:center;gap:6px">${itemImg(it, '28px')} <span><b style="color:${RARITY_COLORS[it.rarity]}">${it.name}</b> <span style="color:#a79cc4">${RARITY_NAMES[it.rarity]} · ${SLOT_NAMES[it.slot]} · nv ${it.minLevel}</span><br><small style="color:#cfc8e8">${describeItem(it).replace(/<br>/g, ' · ')}</small>${why ? `<br><small style="color:#ff8a8a">${why}</small>` : ''}</span></span>
+    <span style="display:flex;align-items:center;gap:6px">${itemImg(it, '28px')} <span><b style="color:${RARITY_COLORS[it.rarity]}">${it.name}</b> <span style="color:#a79cc4">${RARITY_NAMES[it.rarity]} · ${SLOT_NAMES[it.slot]} · nv ${it.minLevel}</span><br><small style="color:#cfc8e8">${describeItem(it).replace(/<br>/g, ' · ')}</small>${why ? `<br><small style="color:#ff8a8a">${why}</small>` : equipWarn(player, it) ? `<br><small style="color:#ffb454">${equipWarn(player, it)}</small>` : ''}</span></span>
     <button data-r="${n}" ${ok ? 'class="primary"' : 'style="opacity:.55"'}>Comprar 🪙 ${fmtGold(price)}</button></div>`;
   }).join('');
   const offers = player.items.map((it) => sellOffer(it, kind, cha));

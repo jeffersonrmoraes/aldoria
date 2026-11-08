@@ -108,7 +108,7 @@ const PART_BONE: Record<PartDef['k'], string> = { horn: 'head', hornsBig: 'head'
 const HEAD_K: Record<string, number> = { Barbarian: 1.55, Knight: 1.1, Mage: 1.0, Rogue: 1.0, Skeleton: 1.15, SkMinion: 1.15, SkMage: 1.15, SkRogue: 1.15 };
 const PART_OFF: Record<string, [number, number, number]> = { head: [0, 0.2, 0], hips: [0, 0, 0], chest: [0, 0, 0] };
 
-const HELD = /^(1H_|2H_|Knife|Mug|Throwable|Spellbook|Round_Shield|Badge_Shield|Rectangle_Shield|Spike_Shield|Barbarian_Round_Shield)/;
+const HELD = /^(P_|1H_|2H_|Knife|Mug|Throwable|Spellbook|Round_Shield|Badge_Shield|Rectangle_Shield|Spike_Shield|Barbarian_Round_Shield)/;
 
 export class SkinnedActor implements Visual {
   root = new THREE.Group();
@@ -492,35 +492,104 @@ export const NPC_SPEC: Record<string, ModelSpec> = {
 };
 
 /** Peças seguradas de acordo com o equipamento (arma e mão esquerda); onde o modelo não tem a peça, mantém o padrão da classe. */
-export function applyEquipment(a: SkinnedActor, classId: string, eq: { mainhand?: { name: string; twoHanded?: boolean }; offhand?: { name: string; offKind?: string } }) {
-  const def = new Set(CLASS_LOOK[classId].show ?? []);
-  const out = new Set<string>(def);
-  const w = eq.mainhand, o = eq.offhand;
-  const pick = (want: string[]) => want.find((n) => a.has(n));
-  const swap = (group: RegExp, name: string | undefined) => { if (!name) return; for (const n of [...out]) if (group.test(n)) out.delete(n); out.add(name); };
-  if (w) {
-    const n = w.name.toLowerCase(), two = !!w.twoHanded;
-    const fists = /manopla|punho|kama|bast[ãa]o de combate/.test(n);
-    let prop: string | undefined;
-    if (a.has('1H_Sword')) prop = fists ? undefined : /machad|martelo|ma[çc]a/.test(n) ? undefined : two ? '2H_Sword' : '1H_Sword';
-    else if (a.has('1H_Axe')) prop = fists ? undefined : /espada|montante|l[âa]mina|rapieira|adaga/.test(n) ? undefined : two ? '2H_Axe' : '1H_Axe';
-    else if (a.has('2H_Staff')) prop = /cajado|bord[ãa]o|cetro|foice|lâmina/.test(n) && two ? '2H_Staff' : /livro|grim[óo]rio|tomo/.test(n) ? 'Spellbook_open' : '1H_Wand';
-    else if (a.has('Knife')) prop = /besta de pulso/.test(n) ? pick(['1H_Crossbow']) : /arco|besta/.test(n) ? pick(['2H_Crossbow']) : 'Knife';
-    if (prop && !fists) swap(/^(1H_|2H_|Knife$|Spellbook_open)/, prop);
-    if (a.has('Knife') && /arco|besta/.test(n)) out.delete('Knife_Offhand');
-  }
-  // mão esquerda: escudo só se estiver equipado
-  const shields = ['Round_Shield', 'Badge_Shield', 'Rectangle_Shield', 'Spike_Shield', 'Barbarian_Round_Shield'];
-  if (a.has('Round_Shield') || a.has('Barbarian_Round_Shield')) {
-    for (const sh of shields) out.delete(sh);
-    if (o?.offKind === 'shield') {
-      const n = o.name.toLowerCase();
-      out.add(a.has('Barbarian_Round_Shield') ? 'Barbarian_Round_Shield' : /espinho|spike/.test(n) ? 'Spike_Shield' : /(sol|aurora|radiante|guardi)/.test(n) ? 'Badge_Shield' : /torre|retangular|placa/.test(n) ? 'Rectangle_Shield' : 'Round_Shield');
+// ---- armas e escudos: qualquer classe pode empunhar qualquer arma; as peças vêm do modelo que as tem (mesmo esqueleto KayKit) ----
+const PROP_SRC: Record<string, string> = {
+  '1H_Sword': 'Knight', '2H_Sword': 'Knight', '1H_Sword_Offhand': 'Knight', Round_Shield: 'Knight', Badge_Shield: 'Knight', Rectangle_Shield: 'Knight', Spike_Shield: 'Knight',
+  '1H_Axe': 'Barbarian', '2H_Axe': 'Barbarian', '1H_Axe_Offhand': 'Barbarian', Barbarian_Round_Shield: 'Barbarian',
+  '1H_Wand': 'Mage', '2H_Staff': 'Mage', Spellbook: 'Mage', Spellbook_open: 'Mage',
+  Knife: 'Rogue', Knife_Offhand: 'Rogue', '1H_Crossbow': 'Rogue', '2H_Crossbow': 'Rogue',
+};
+const propSrc: Record<string, THREE.Object3D> = {};
+const wood = () => new THREE.MeshStandardMaterial({ color: '#7a5230', roughness: 0.85 });
+const steel = () => new THREE.MeshStandardMaterial({ color: '#b9c0c9', roughness: 0.35, metalness: 0.6 });
+const bone = () => new THREE.MeshStandardMaterial({ color: '#e8e0c8', roughness: 0.8 });
+const dark = () => new THREE.MeshStandardMaterial({ color: '#3a2a1e', roughness: 0.9 });
+/** Armas sem peça nos modelos (maça, martelo, bordão, kama, foice, arco, alaúde, cetro), no mesmo espaço da mão: +y ao longo da arma. */
+function buildProp(name: string): { obj: THREE.Object3D; slot: string } {
+  const g = new THREE.Group();
+  const cyl = (r: number, h: number, y: number, m: THREE.Material) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 8), m); o.position.y = y; g.add(o); return o; };
+  const ball = (r: number, y: number, m: THREE.Material, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), m); o.position.y = y; o.scale.set(sx, sy, sz); g.add(o); return o; };
+  const arc = (R: number, tube: number, ang: number, m: THREE.Material, cx: number, cy: number, rot = 0, flat = 0.4) => {
+    const o = new THREE.Mesh(new THREE.TorusGeometry(R, tube, 6, 20, ang), m); o.position.set(cx, cy, 0); o.rotation.z = rot; o.scale.z = flat; g.add(o); return o;
+  };
+  let slot = 'handslotr';
+  switch (name) {
+    case 'P_Mace': cyl(0.07, 1.5, 0.45, wood()); ball(0.25, 1.3, steel()); for (let i = 0; i < 6; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.2, 5), steel()); const t = (i / 6) * Math.PI * 2; sp.position.set(Math.cos(t) * 0.28, 1.3, Math.sin(t) * 0.28); sp.rotation.set(Math.sin(t) * Math.PI / 2, 0, -Math.cos(t) * Math.PI / 2); g.add(sp); } break;
+    case 'P_Hammer': cyl(0.07, 1.6, 0.5, wood()); { const h = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.42, 0.42), steel()); h.position.y = 1.3; g.add(h); } break;
+    case 'P_Pole': cyl(0.06, 3.0, 0.6, wood()); cyl(0.085, 0.14, 2.05, steel()); cyl(0.085, 0.14, -0.85, steel()); cyl(0.075, 0.1, 0.9, dark()); break;
+    case 'P_Kama': cyl(0.05, 0.9, 0.12, wood()); arc(0.55, 0.05, Math.PI * 0.95, steel(), -0.55, 0.57, 0, 0.35); break;
+    case 'P_Scythe': cyl(0.06, 2.8, 0.5, wood()); arc(0.85, 0.07, Math.PI * 0.75, steel(), -0.85, 1.85, 0, 0.35); break;
+    case 'P_Scepter': cyl(0.05, 1.5, 0.45, bone()); ball(0.22, 1.4, bone(), 1, 1.15, 1); ball(0.05, 1.45, dark(), 1, 1, 1).position.z = 0.17; break;
+    case 'P_Lute': ball(0.5, 0.1, wood(), 0.9, 1.15, 0.42); cyl(0.055, 1.2, 1.15, dark()); { const hd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.3, 0.1), dark()); hd.position.y = 1.85; g.add(hd); } { const hole = new THREE.Mesh(new THREE.CircleGeometry(0.14, 12), dark()); hole.position.set(0, 0.3, 0.2); g.add(hole); } break;
+    case 'P_Bow': {
+      slot = 'handslotl';
+      arc(1.05, 0.045, Math.PI * 0.85, wood(), -0.78, 0, -Math.PI * 0.425, 1);
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.55, 4), bone()); s.position.set(-0.78 + 1.05 * Math.cos(Math.PI * 0.425), 0, 0); g.add(s);
+      g.rotation.z = Math.PI / 2; g.scale.setScalar(1.3);
+      break;
     }
   }
-  if (a.has('Knife_Offhand') && w && !/arco|besta/.test(w.name.toLowerCase())) { if (o?.offKind === 'weapon') out.add('Knife_Offhand'); else out.delete('Knife_Offhand'); }
-  if (a.has('1H_Sword_Offhand')) { if (o?.offKind === 'weapon') out.add('1H_Sword_Offhand'); else out.delete('1H_Sword_Offhand'); }
-  if (a.has('1H_Axe_Offhand')) { if (o?.offKind === 'weapon') out.add('1H_Axe_Offhand'); else out.delete('1H_Axe_Offhand'); }
-  if (a.has('Spellbook')) { if (o?.offKind === 'focus' && /livro|grim[óo]rio|tomo/.test(o.name.toLowerCase())) out.add('Spellbook'); else if (!def.has('Spellbook')) out.delete('Spellbook'); else if (o && o.offKind !== 'focus') out.delete('Spellbook'); }
+  g.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } });
+  return { obj: g, slot };
+}
+/** Garante que o ator tenha a peça `name` (clonando-a do modelo que a possui ou construindo-a). */
+function ensureProp(a: SkinnedActor, name: string) {
+  if (a.has(name)) return;
+  let obj: THREE.Object3D | null = null, slot = 'handslotr';
+  if (name.startsWith('P_')) ({ obj, slot } = buildProp(name));
+  else {
+    const src = PROP_SRC[name];
+    if (!src) return;
+    propSrc[src] ??= cloneModel(src);
+    let found: THREE.Object3D | null = null;
+    propSrc[src].traverse((o) => { if (o.name === name) found = o; });
+    if (!found) return;
+    const f = found as THREE.Object3D;
+    obj = f.clone(); slot = f.parent?.name ?? slot;
+  }
+  let bone: THREE.Object3D | null = null;
+  a.model.traverse((o) => { if (o.name === slot) bone = o; });
+  if (!bone || !obj) return;
+  obj.name = name; obj.visible = false;
+  (bone as THREE.Object3D).add(obj);
+}
+
+/** Qual peça representa cada arma pelo nome (família da arma). */
+export function weaponProp(raw: string): string | undefined {
+  const n = raw.toLowerCase();
+  if (/manopla|punho/.test(n)) return undefined;
+  if (/adaga|punhal/.test(n)) return 'Knife';
+  if (/montante/.test(n)) return '2H_Sword';
+  if (/espada|cimitarra|rapieira|l[âa]mina/.test(n)) return '1H_Sword';
+  if (/machado grande/.test(n)) return '2H_Axe';
+  if (/machad/.test(n)) return '1H_Axe';
+  if (/martelo/.test(n)) return 'P_Hammer';
+  if (/ma[çc]a/.test(n)) return 'P_Mace';
+  if (/kama/.test(n)) return 'P_Kama';
+  if (/foice/.test(n)) return 'P_Scythe';
+  if (/bord[ãa]o|bast[ãa]o/.test(n)) return 'P_Pole';
+  if (/besta de pulso|bra[çc]adeira/.test(n)) return '1H_Crossbow';
+  if (/besta/.test(n)) return '2H_Crossbow';
+  if (/arco/.test(n)) return 'P_Bow';
+  if (/cajado/.test(n)) return '2H_Staff';
+  if (/cetro/.test(n)) return 'P_Scepter';
+  if (/varinha/.test(n)) return '1H_Wand';
+  if (/livro|grim[óo]rio|tomo/.test(n)) return 'Spellbook_open';
+  if (/ala[úu]de|harpa/.test(n)) return 'P_Lute';
+  return undefined;
+}
+
+export function applyEquipment(a: SkinnedActor, _classId: string, eq: { mainhand?: { name: string; twoHanded?: boolean }; offhand?: { name: string; offKind?: string } }) {
+  const out = new Set<string>();
+  const w = eq.mainhand, o = eq.offhand;
+  if (w) { const p = weaponProp(w.name); if (p) out.add(p); }
+  if (o?.offKind === 'shield') {
+    const n = o.name.toLowerCase();
+    out.add(a.spec.model === 'Barbarian' ? 'Barbarian_Round_Shield' : /espinho|spike/.test(n) ? 'Spike_Shield' : /(sol|aurora|radiante|guardi)/.test(n) ? 'Badge_Shield' : /torre|retangular|placa/.test(n) ? 'Rectangle_Shield' : 'Round_Shield');
+  } else if (o?.offKind === 'weapon') {
+    const n = o.name.toLowerCase();
+    out.add(/adaga|punhal/.test(n) ? 'Knife_Offhand' : /machad/.test(n) ? '1H_Axe_Offhand' : '1H_Sword_Offhand');
+  } else if (o?.offKind === 'focus' && /livro|grim[óo]rio|tomo/.test(o.name.toLowerCase())) out.add('Spellbook');
+  for (const n of out) ensureProp(a, n);
   a.setHeld([...out]);
 }

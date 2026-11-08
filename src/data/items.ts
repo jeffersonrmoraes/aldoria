@@ -273,7 +273,7 @@ export interface GenOpts {
   noEnchant?: boolean;
 }
 export const MONK_WEAPON_RE = /^(manopla|bast[ãa]o|kama|punhos|bord[ãa]o|espada curta)/i;
-const MONK_ONLY_RE = /^(manopla|bast[ãa]o|kama|punhos)/i;
+export const MONK_ONLY_RE = /^(manopla|bast[ãa]o|kama|punhos)/i;
 
 /** Gera o item e aplica conjunto e (às vezes) um encantamento. */
 export function genItem(o: GenOpts): Item {
@@ -365,6 +365,10 @@ function genItemBase(o: GenOpts): Item {
     minLevel: b.min, icon: b.icon, stat, value: itemValue(b.min, r + 1),
   };
 }
+
+/** Armas iniciais à escolha na criação do personagem (nível 1, de qualquer estilo; fora da classe rendem menos dano). */
+export const STARTER_WEAPONS: { name: string; style: Style; dice: Dice; icon: string; two: boolean }[] =
+  (['melee', 'ranged', 'magic'] as Style[]).flatMap((st) => WEAPONS[st].filter((w) => w.min <= 1).map((w) => ({ name: w.name, style: st, dice: w.dice, icon: w.icon, two: isTwoHanded(w.name) })));
 
 export function findBase(style: Style, name: string): Item {
   const b = WEAPONS[style].find((w) => w.name === name) ?? WEAPONS[style][0];

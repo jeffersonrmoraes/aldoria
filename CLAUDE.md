@@ -27,12 +27,17 @@ Novas lojas: adicionar `BuildingKind` em `town.ts`, emblema em `buildings.ts`, i
 
 ## Menu e personagens
 - **Tela inicial temática** (`showMenu` em `ui.ts`, CSS `.tscreen` em `index.html`): céu noturno com lua, dragão voando, castelo, brasas, d20 girando, título serifado dourado e fichas de personagem em pergaminho (selo numerado). Só CSS/SVG, sem arquivos.
-- **Criação de personagem** (`showCreate`, CSS `.create2`/`.ctab`/`.opt`): editor com abas (Raça, Classe, Olhos, Roupa, Altura, Pele), boneco 3D grande com setas de girar, opções com miniaturas (cache `thumbCache`) e botão de aparência aleatória.
+- **Criação de personagem** (`showCreate`, CSS `.create2`/`.ctab`/`.opt`): editor com abas (Raça, Classe, Arma inicial, Olhos, Roupa, Altura, Pele), boneco 3D grande com setas de girar, opções com miniaturas (cache `thumbCache`) e botão de aparência aleatória.
 - **Aparência** (`Look` em `src/data/looks.ts`, guardada em `PlayerState.look`; ausente em saves antigos = visual original do modelo): só **cor dos olhos**, **altura** (90–110%) e **roupa** (tinge corpo/braços/pernas/capa), aplicadas por `applyLook` em `src/art/look3d.ts`. Decisão do projeto: **não há** customização de cabelo, adereços de cabeça nem pelos/marcas no rosto (cada classe mantém o cabelo, o chapéu/elmo e a barba do modelo KayKit). Online: `look` vai no join/roster (PROTOCOL v6) e é validada por `sanitizeLook`.
 - **Cabelo**: não é customizável (decisão do projeto: nada de estilos, gênero ou cor de cabelo); cada classe mantém o cabelo, a barba e as sobrancelhas do modelo KayKit. Barba/bigode do editor (aba Rosto) usam castanho-escuro fixo.
 - **Olhos**: só a cor muda (os olhos do modelo são recoloridos por cor de vértice em `recolorBaked`, a única coisa que ele ainda faz); não há olhos desenhados por cima.
 - 3 espaços de personagem (`aldoria-save-slot-N`; o save antigo migra para o espaço 1).
 - **Esc** abre o Menu (Continuar / Como jogar / Salvar e voltar ao menu principal).
+
+## Armas: aparência na mão e armas fora da classe
+- **Arma inicial à escolha** (aba "Arma inicial", `STARTER_WEAPONS` em `items.ts`, `newPlayer(..., startWeapon)`): todas as armas de nível 1 de qualquer estilo; a classe tem uma padrão. O boneco do preview já segura a arma escolhida.
+- **Toda arma tem aparência própria** (`applyEquipment`/`weaponProp` em `actors.ts`): as peças dos modelos KayKit (espada, montante, machado, machado grande, adaga, varinha, cajado, livro, bestas) são **clonadas para qualquer classe** (mesmo esqueleto, osso `handslotr/l`); as que não existem (maça, martelo, bordão/bastão, kama, foice, cetro, arco, alaúde) são construídas proceduralmente (`buildProp`, prefixo `P_`, +y ao longo da arma). Manoplas/punhos = mãos vazias. Para uma arma nova, adicione a regra em `weaponProp`.
+- **Armas fora da classe** (`weaponPenalty` em `state.ts`, usado em `derive` via `dmgPct`): qualquer classe pode equipar qualquer arma (sem bloqueio por estilo), mas estilo errado (corpo a corpo × distância × magia) = **−45% de dano**; Monge com arma que não é de monge (e vice-versa) = **−25%**. O aviso laranja "⚠ Fora das armas da sua classe" aparece no tooltip e na loja. O ataque (alcance/animação/projétil) continua o da classe. O servidor usa a mesma `derive`.
 
 ## Armas por classe (uma mão e duas mãos)
 Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WEAPONS` em `src/data/items.ts`):
