@@ -15,6 +15,7 @@ import { portrait } from '../art/portrait';
 import { EYE_COLORS, Look, OUTFITS, Opt, defaultLook, heightScale, randomLook } from '../data/looks';
 import { MATS, canPay, craftCost, payMats } from '../data/materials';
 import { bus } from '../game/bus';
+import { DEFAULT_KEYS, KEY_ACTIONS, KEY_LABEL, KeyAction, keyLabel, keyOf, resetKeys, setKey, skillKeyLabel } from '../game/keys';
 import { CLASS_EXTRA, EXTRA_BY_ID, WEAPON_EXTRA } from '../data/extraskills';
 import { FAMILIES, buyWeaponNode, weaponNodeState, weaponPointsLeft, weaponPointsTotal, weaponTree } from '../data/weapontree';
 import { FAMILY_NAMES, WeaponFamily, weaponFamily } from '../data/weaponskills';
@@ -261,13 +262,20 @@ export function initHud() {
   const sk = q('#skills');
   sk.innerHTML = '';
   for (let i = 0; i < 9; i++) {
-    const s = h(`<b>${i + 1}</b><span class="ic"></span><em></em><div class="cd"></div>`, i >= 6 ? 'slot xslot' : i >= 4 ? 'slot wslot' : 'slot');
+    const s = h(`<b>${skillKeyLabel(i)}</b><span class="ic"></span><em></em><div class="cd"></div>`, i >= 6 ? 'slot xslot' : i >= 4 ? 'slot wslot' : 'slot');
     s.dataset.i = String(i);
     s.onclick = () => bus.emit('skill', i);
     sk.appendChild(s);
   }
+  const relabel = () => {
+    document.querySelectorAll<HTMLElement>('#skills .slot[data-i]').forEach((el) => { q('b', el).textContent = skillKeyLabel(Number(el.dataset.i)); });
+    document.querySelectorAll<HTMLElement>('#skills .slot[data-p]').forEach((el) => { q('b', el).textContent = keyLabel(keyOf(el.dataset.p === 'heal' ? 'potHeal' : 'potEnergy')); });
+  };
+  window.removeEventListener('aldoria-keys', (window as any).__relabelKeys);
+  (window as any).__relabelKeys = relabel;
+  window.addEventListener('aldoria-keys', relabel);
   for (const [k, key, ic] of [['heal', 'H', 'i_pot_red'], ['energy', 'J', 'i_pot_blue']] as const) {
-    const s = h(`<b>${key}</b><img src="${frameIcon(ic, 4)}" style="width:40px;image-rendering:pixelated"><em></em><div class="cd"></div>`, 'slot');
+    const s = h(`<b>${keyLabel(keyOf(k === 'heal' ? 'potHeal' : 'potEnergy'))}</b><img src="${frameIcon(ic, 4)}" style="width:40px;image-rendering:pixelated"><em></em><div class="cd"></div>`, 'slot');
     s.dataset.p = k;
     s.onclick = () => bus.emit('potion', k);
     sk.appendChild(s);
@@ -450,7 +458,7 @@ function onZone(z: ZoneDef) {
 }
 
 // ======================== JANELAS ========================
-type WinKind = 'inv' | 'char' | 'help' | 'npc' | 'journal' | 'map' | 'pause' | 'skills' | 'enchant';
+type WinKind = 'keys' | 'inv' | 'char' | 'help' | 'npc' | 'journal' | 'map' | 'pause' | 'skills' | 'enchant';
 let mapTimer: number | undefined;
 let mapTab: MapKind = 'global';
 let curWin: WinKind | null = null;
@@ -469,11 +477,40 @@ function toggleWin(k: WinKind) {
   else if (k === 'skills') renderSkills('skills');
 }
 
+/** Tela de atalhos: clique numa ação e aperte a nova tecla. */
+function renderKeys(listening?: KeyAction, msg = '') {
+  const rows = KEY_ACTIONS.map((a) => `<div class="qrow" style="display:flex;align-items:center;gap:8px;padding:2px 8px;margin:2px 0;${a === 'skill7' ? 'border-top:1px solid #4a4170;margin-top:4px' : ''}">
+    <span style="flex:1">${KEY_LABEL[a]}</span>
+    <button data-k="${a}" class="${listening === a ? 'primary' : ''}" style="min-width:110px;padding:3px 8px">${listening === a ? 'Aperte uma tecla…' : keyLabel(keyOf(a))}</button>
+    ${keyOf(a) !== DEFAULT_KEYS[a] ? `<span style="font-size:11px;color:#a79cc4">(padrão ${keyLabel(DEFAULT_KEYS[a])})</span>` : ''}</div>`).join('');
+  const w = setWin(`<h3>Teclas${closeBtn}</h3>
+    <div style="font-size:12px;color:#a79cc4;margin-bottom:6px">Clique no botão de uma ação e aperte a tecla desejada (letras, números, símbolos e F2–F12). Se a tecla já estiver em outra ação, as duas trocam de lugar. Movimento (WASD/setas) e janelas (I, C, K, L, M, E) são fixos. Salvo neste navegador.</div>
+    ${msg ? `<div style="color:#ff8a8a;font-size:13px;margin-bottom:6px">${msg}</div>` : ''}${rows}
+    <div class="row"><button id="k-reset">↺ Restaurar padrão</button><button id="k-back">◀ Voltar ao menu</button></div>`);
+  bindClose(w);
+  w.querySelectorAll<HTMLElement>('[data-k]').forEach((b) => (b.onclick = () => {
+    const a = b.dataset.k as KeyAction;
+    renderKeys(a);
+    const prev = window.onkeydown;
+    const cap = (e: KeyboardEvent) => {
+      e.preventDefault(); e.stopPropagation();
+      window.removeEventListener('keydown', cap, true);
+      if (e.key === 'Escape') { renderKeys(); return; }
+      const err = setKey(a, e.key);
+      renderKeys(undefined, err ?? '');
+    };
+    void prev;
+    window.addEventListener('keydown', cap, true);
+  }));
+  q('#k-reset', w).onclick = () => { resetKeys(); renderKeys(); };
+  q('#k-back', w).onclick = () => { curWin = 'pause'; renderPause(); };
+}
 function renderPause() {
   const w = setWin(`<h3>Menu${closeBtn}</h3>
     <div style="font-size:13px;color:#cfc8e8;margin-bottom:10px">O jogo é salvo automaticamente. Você pode trocar de personagem ou voltar ao menu principal a qualquer momento.</div>
     <div class="row" style="flex-direction:column;gap:8px">
       <button id="p-go" class="primary">▶ Continuar</button>
+      <button id="p-keys">⌨ Teclas — mudar atalhos das habilidades</button>
       <button id="p-help">❓ Como jogar</button>
       <button id="p-menu">🏠 Salvar e voltar ao menu principal</button>
     </div>
@@ -487,6 +524,7 @@ function renderPause() {
   q<HTMLInputElement>('#a-mute', w).onchange = (e) => setAudio({ muted: (e.target as HTMLInputElement).checked });
   q('#p-go', w).onclick = closeWin;
   q('#p-help', w).onclick = () => { curWin = 'help'; renderHelp(); };
+  q('#p-keys', w).onclick = () => { curWin = 'keys'; renderKeys(); };
   q('#p-menu', w).onclick = () => { save(); closeWin(); bus.emit('menu'); };
 }
 function setWin(html: string): HTMLElement {

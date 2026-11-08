@@ -25,6 +25,7 @@ import { House, Terrain, buildTerrain } from './terrain';
 import { CLASS_FX, ProjKind, Vfx } from './vfx';
 import { enchProc } from '../data/enchants';
 import { skillMod } from '../data/progression';
+import { actionOf } from '../game/keys';
 import { dumpValue } from '../data/economy';
 import { NetClient } from '../net/online';
 import { RemotePlayers } from '../net/remotes';
@@ -448,10 +449,11 @@ export class World3D {
       const k = e.key.toLowerCase();
       this.keys.add(k);
       if (e.repeat) return;
-      if (k >= '1' && k <= '9') this.useSkill(Number(k) - 1);
+      const act = actionOf(k);
+      if (act && act.startsWith('skill')) this.useSkill(Number(act.slice(5)) - 1);
+      else if (act === 'potHeal') this.usePotion('heal');
+      else if (act === 'potEnergy') this.usePotion('energy');
       else if (k === 'enter') this.openChat();
-      else if (k === 'h') this.usePotion('heal');
-      else if (k === 'j') this.usePotion('energy');
       else if (k === 'e') { const n = this.nearNpc(); if (n) bus.emit('npc', n.id); else { const pt = this.nearPortal(); if (pt) this.usePortal(pt); } }
     });
     onW('keyup', (e) => this.keys.delete(e.key.toLowerCase()));

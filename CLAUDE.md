@@ -50,6 +50,8 @@ O jogador só vê o aviso "Sua classe não pode usar" quando o item não serve. 
 - **Habilidades extras** (`src/data/extraskills.ts`): 4 por classe (`CLASS_EXTRA`, ids `c_<classe>_x1..4`) e 4 por tipo de arma (`WEAPON_EXTRA`, ids `w_<familia>_x1..4`), liberadas nos níveis 6/9/12/15 (`EXTRA_UNLOCK`). Só usam tipos que o servidor executa (strike/bolt/nova/cone/dash/drain/buff/heal). O jogador as escolhe na aba **🎯 Barra** da tecla K (`renderBar`).
 - **Árvores maiores**: cada habilidade extra ganha um ramo Potência → Eficiência → Maestria (`skillId` nos nós; `skillModById` na árvore da classe, `weaponModById` na de armas). A árvore da classe tem 7 ramos de habilidade + Treino; a de armas, Perícia + 6 habilidades.
 
+- **Teclas configuráveis** (`src/game/keys.ts`, janela `renderKeys` em `ui.ts`, botão "⌨ Teclas" no menu Esc): as 9 casas de habilidade e as poções (H/J) podem ter outra tecla; conflito entre ações = troca; teclas do jogo (WASD/setas, I C K L M E, Enter, Esc, F1) são reservadas. Salvo em `localStorage` (`aldoria-keys`), por navegador. `World3D` usa `actionOf(tecla)`; os rótulos da barra atualizam pelo evento `aldoria-keys`.
+
 ## Armas por classe (uma mão e duas mãos)
 Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WEAPONS` em `src/data/items.ts`):
 - **Corpo a corpo** (Bárbaro, Clérigo, Guerreiro, Paladino, Ladino): espadas/maças/machadinhas (1 mão) e Montante, Machado Grande e **Bordão** (2 mãos, armas de qualquer estilo vêm da Forja, do Ferreiro e de drops).
