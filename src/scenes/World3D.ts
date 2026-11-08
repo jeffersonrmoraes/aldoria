@@ -15,7 +15,8 @@ import { RACE_BY_ID } from '../data/races';
 import { MOBS, MobDef, eliteOf } from '../data/monsters';
 import { BOSSES, BossAbility } from '../game/bosses';
 import { Buff, SkillDef, d20, rand, roll } from '../data/rules';
-import { allowedOff, genItem, randGold, rollRarity, RARITY_COLORS, Slot } from '../data/items';
+import { allowedOff, genItem, randGold, rollDrop, RARITY_COLORS, Slot } from '../data/items';
+import { MATS, addMats, rollMats } from '../data/materials';
 import { bus } from '../game/bus';
 import { addItem, derive, Derived, gainXp, player, save, xpForCurrent, xpForNext } from '../game/state';
 import { CHAR_H } from '../art/models';
@@ -1101,14 +1102,21 @@ export class World3D {
       bus.emit('log', `Você obteve: ${FRAGMENT_BY_ID[def.fragment].name}!`, '#ffd23f');
     }
     const boss = !!def.boss;
-    if (Math.random() < (boss || def.elite ? 1 : 0.32)) {
+    const drop = rollDrop(boss, !!def.elite);          // equipamento é raro: 1% Comum, e cada raridade acima ainda mais rara
+    if (drop !== null) {
       const r = Math.random();
       const off = allowedOff(cls);
       const slot: Slot = r < 0.24 ? 'mainhand' : r < 0.4 ? 'body' : r < 0.52 ? 'head' : r < 0.64 ? 'legs' : r < 0.78 && off.length ? 'offhand' : 'accessory';
-      const it = genItem({ slot, level: def.level, style: cls.style, rarity: rollRarity(boss, !!def.elite), armorMax: cls.armor, off, cid: cls.id });
+      const it = genItem({ slot, level: def.level, style: cls.style, rarity: drop, armorMax: cls.armor, off, cid: cls.id });
       sfx.loot(it.rarity);
       if (addItem(it)) bus.emit('log', `Item encontrado: ${it.name}`, RARITY_COLORS[it.rarity]);
       else { const g = dumpValue(it); player.gold += g; bus.emit('log', `Mochila cheia: ${it.name} vendido por ${g} ouro`, '#f1c40f'); }
+    }
+    const mats = rollMats(def.level, !!def.elite, boss);       // materiais de forja
+    if (Object.keys(mats).length) {
+      player.mats ??= {};
+      addMats(player.mats, mats);
+      bus.emit('log', 'Coletou: ' + MATS.filter((x) => mats[x.id]).map((x) => `${x.icon} ${mats[x.id]} ${x.name}`).join(' · '), '#c9d1d9');
     }
     if (Math.random() < 0.14) { player.potions.heal++; bus.emit('log', 'Você encontrou uma Poção de Cura.', '#ff8a8a'); }
     if (Math.random() < 0.07) { player.potions.energy++; bus.emit('log', 'Você encontrou uma Poção de Energia.', '#8ab4ff'); }

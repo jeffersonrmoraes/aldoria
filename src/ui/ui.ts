@@ -2,7 +2,7 @@ import { CLASSES, CLASS_BY_ID, ARMOR_NAMES } from '../data/classes';
 import { RACES, RACE_BY_ID } from '../data/races';
 import { ABILITIES, ABILITY_NAMES, ABILITY_SHORT, MAX_LEVEL } from '../data/rules';
 import { BAG_SIZE, PlayerState, addItem, derive, deleteSave, equipBlock, equipWarn, gainXp, listSaves, loadSave, newPlayer, weaponPenalty, player, save, setPlayer, setSlot } from '../game/state';
-import { Item, STARTER_WEAPONS, findBase, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
+import { Craftable, Item, Rarity, STARTER_WEAPONS, craftItem, craftables, findBase, itemValue, RARITY_COLORS, RARITY_NAMES, SHOP_INFO, ShopId, SLOT_LABEL, SLOT_ORDER, Slot, allowedOff, describeItem, genItem, genShopStock, shopPrice } from '../data/items';
 import { QUESTS, ZONES, ZoneDef, zoneAt } from '../chapters/chapter1';
 import { audioCfg, setAudio, sfx } from '../game/audio';
 import { BUILDINGS, townOf } from '../chapters/town';
@@ -13,6 +13,7 @@ import { DUNGEONS, EPILOGUE, FRAGMENTS, FRAGMENT_BY_ID, MAIN_QUESTS, SAGE_INTRO 
 import { frameIcon, itemFrameName } from '../art/art';
 import { portrait } from '../art/portrait';
 import { EYE_COLORS, Look, OUTFITS, Opt, defaultLook, heightScale, randomLook } from '../data/looks';
+import { MATS, canPay, craftCost, payMats } from '../data/materials';
 import { bus } from '../game/bus';
 import { attrTree, attrPointsLeft, attrPointsTotal, buyNode, nodeState, respecCost, skillPointsLeft, skillPointsTotal, skillTree, Tree } from '../data/progression';
 import { ENCHANTS, ROMAN, enchantCost, enchLine } from '../data/enchants';
@@ -560,6 +561,7 @@ function renderInv() {
   }).join('');
   const w = setWin(`<h3>Inventário <span style="font-size:12px;color:#a79cc4">${player.items.length}/${BAG_SIZE} · CA ${d.ac} · PV ${d.maxHp}</span>${closeBtn}</h3>
     <div class="eq">${eq}</div><div class="grid">${cells}</div>
+    <div class="mats">${MATS.map((m) => `<span title="${m.name}" style="color:${m.color}">${m.icon} ${player.mats?.[m.id] ?? 0}</span>`).join('')}</div>
     <div class="tip" id="tip">${selItem ? itemTip(selItem) : 'Clique em um item para ver detalhes. Clique em um equipamento para removê-lo.'}</div>
     <div class="row" id="acts"></div>`);
   bindClose(w);
@@ -689,11 +691,14 @@ function shopWindow(kind: ShopId) {
   }).join('') || '<div class="qrow">Sua mochila está vazia.</div>';
   const w = setWin(`<h3>${info.npc} — 🪙 ${fmtGold(player.gold)}${closeBtn}</h3>
     <div style="font-size:13px;margin-bottom:6px">${info.quote}</div>
+    ${kind === 'smith' ? '<div class="row"><button id="open-forge" class="primary">⚒ Forja — criar armas e armaduras com materiais</button></div>' : ''}
     ${info.potions ? `<div class="row"><button data-b="heal">Poção de Cura 🪙 ${pp} (você tem ${player.potions.heal})</button><button data-b="energy">Poção de Energia 🪙 ${pp} (${player.potions.energy})</button></div>` : ''}
     <h3 style="margin-top:12px">${info.section} <span style="font-size:11px;color:#a79cc4">(raros, épicos e lendários — preços de dragão)</span></h3>${rare}
     <h3 style="margin-top:12px">Vender <span style="font-size:11px;color:#a79cc4">(⭐ o dono paga bem mais pelas mercadorias do próprio ofício; outros itens, só o preço de sucata)</span></h3>${sell}
     ${player.items.length ? '<div class="row"><button id="sell-common">Vender itens comuns</button><button id="sell-special">Vender tudo o que esta loja valoriza (⭐)</button></div>' : ''}`);
   bindClose(w);
+  const of = w.querySelector<HTMLElement>('#open-forge');
+  if (of) of.onclick = () => forgeWindow();
   w.querySelectorAll<HTMLElement>('[data-b]').forEach((b) => (b.onclick = () => {
     if (player.gold < pp) { onLog('Ouro insuficiente.', '#ff8a8a'); return; }
     player.gold -= pp; player.potions[b.dataset.b as 'heal' | 'energy']++; save(); reopen();
@@ -720,6 +725,41 @@ function shopWindow(kind: ShopId) {
   if (sc) sc.onclick = () => bulk((it) => it.rarity === 0);
   const ss = w.querySelector<HTMLElement>('#sell-special');
   if (ss) ss.onclick = () => bulk((it) => buysItem(kind, it) && it.rarity <= 2);
+}
+
+// ======================== FORJA ========================
+let forgeRar: Rarity = 0, forgeCat: Craftable['cat'] = 'weapon';
+function forgeWindow() {
+  const mats = player.mats ??= {};
+  const all = craftables(player.level).filter((c) => c.cat === forgeCat).sort((a, b) => a.min - b.min);
+  const cats: [Craftable['cat'], string][] = [['weapon', '⚔️ Armas'], ['body', '🥋 Corpo'], ['head', '⛑️ Elmos'], ['legs', '🦿 Pernas'], ['shield', '🛡️ Escudos']];
+  const rows = all.map((c, n) => {
+    const cost = craftCost(c.metal, forgeRar, c.min), gold = Math.round(itemValue(c.min, forgeRar) * 0.15);
+    const ok = canPay(mats, cost) && player.gold >= gold;
+    const costTxt = MATS.filter((m) => cost[m.id]).map((m) => `<span style="color:${(mats[m.id] ?? 0) >= (cost[m.id] ?? 0) ? m.color : '#ff8a8a'}">${m.icon} ${cost[m.id]}</span>`).join(' ') + ` <span style="color:${player.gold >= gold ? '#ffd23f' : '#ff8a8a'}">🪙 ${fmtGold(gold)}</span>`;
+    return `<div class="qrow" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span><b>${c.icon} ${c.name}</b> <span style="color:#a79cc4">${c.info} · nv ${c.min}</span><br><small>${costTxt}</small></span>
+      <button data-c="${n}" ${ok ? 'class="primary"' : 'style="opacity:.55"'}>Forjar</button></div>`;
+  }).join('') || '<div class="qrow">Nada disponível para o seu nível.</div>';
+  const w = setWin(`<h3>⚒ Forja — Ferreira Durga${closeBtn}</h3>
+    <div class="mats" style="margin-bottom:6px">${MATS.map((m) => `<span title="${m.name}" style="color:${m.color}">${m.icon} ${mats[m.id] ?? 0} ${m.name}</span>`).join('')}</div>
+    <div style="font-size:12px;color:#a79cc4;margin-bottom:6px">Materiais caem dos monstros (chefes e elites dão mais). A raridade do item forjado depende do material gasto: Lendário exige diamantes.</div>
+    <div class="row">${RARITY_NAMES.map((n, r) => `<button data-r="${r}" ${r === forgeRar ? 'class="primary"' : ''} style="color:${RARITY_COLORS[r as Rarity]}">${n}</button>`).join('')}</div>
+    <div class="row">${cats.map(([k, n]) => `<button data-k="${k}" ${k === forgeCat ? 'class="primary"' : ''}>${n}</button>`).join('')}</div>
+    ${rows}
+    <div class="row"><button id="back-smith">← Voltar à loja</button></div>`);
+  bindClose(w);
+  w.querySelectorAll<HTMLElement>('[data-r]').forEach((b) => (b.onclick = () => { forgeRar = Number(b.dataset.r) as Rarity; forgeWindow(); }));
+  w.querySelectorAll<HTMLElement>('[data-k]').forEach((b) => (b.onclick = () => { forgeCat = b.dataset.k as Craftable['cat']; forgeWindow(); }));
+  q('#back-smith', w).onclick = () => shopWindow('smith');
+  w.querySelectorAll<HTMLElement>('[data-c]').forEach((b) => (b.onclick = () => {
+    const c = all[Number(b.dataset.c)], cost = craftCost(c.metal, forgeRar, c.min), gold = Math.round(itemValue(c.min, forgeRar) * 0.15);
+    if (!canPay(mats, cost) || player.gold < gold) { onLog('Materiais ou ouro insuficientes.', '#ff8a8a'); return; }
+    if (player.items.length >= BAG_SIZE) { onLog('Mochila cheia.', '#ff8a8a'); return; }
+    const it = craftItem(c, forgeRar);
+    payMats(mats, cost); player.gold -= gold; addItem(it);
+    onLog(`Você forjou: ${it.name}!`, RARITY_COLORS[it.rarity]); sfx.loot(it.rarity); save(); forgeWindow();
+  }));
 }
 
 // ======================== ÁRVORES ========================

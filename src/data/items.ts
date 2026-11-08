@@ -411,6 +411,15 @@ export function rollRarity(boss = false, elite = false): Rarity {
   return 3;
 }
 
+/** Chance (%) de um monstro comum largar um item de cada raridade: 1% Comum e cada raridade acima ainda mais rara. */
+export const DROP_PCT = [1, 0.5, 0.25, 0.1, 0.03];
+/** Sorteia a raridade do item largado (ou nada). Elites ×15 e chefes ×40 sobre a tabela. */
+export function rollDrop(boss = false, elite = false): Rarity | null {
+  const k = boss ? 40 : elite ? 15 : 1;
+  for (let r = 4; r >= 0; r--) if (Math.random() * 100 < DROP_PCT[r] * k) return r as Rarity;
+  return null;
+}
+
 export const randGold = (level: number) => rand(2 + level * 2, 6 + level * 5);
 
 export function describeItem(i: Item): string {
@@ -642,4 +651,26 @@ export function itemProblem(it: Item): string | null {
   } else return 'espaço inválido';
   if (it.ench && it.slot !== 'mainhand') return 'encanto fora da arma';
   return null;
+}
+
+
+// ---- Forja: o que dá para criar com materiais ----
+export interface Craftable { key: string; cat: 'weapon' | 'body' | 'head' | 'legs' | 'shield'; slot: Slot; style?: Style; name: string; icon: string; min: number; metal: boolean; info: string }
+const WOODEN = /^(arco|besta|cajado|varinha|bord[ãa]o|bast[ãa]o|cetro|ala[úu]de|harpa|livro|grim[óo]rio|tomo|escudo de madeira)/i;
+/** Bases que o jogador já pode forjar (nível mínimo ≤ nível do jogador + 1). */
+export function craftables(level: number): Craftable[] {
+  const out: Craftable[] = [];
+  const ok = (min: number) => min <= level + 1;
+  for (const st of ['melee', 'ranged', 'magic'] as Style[]) for (const w of WEAPONS[st]) if (ok(w.min)) out.push({ key: 'w:' + w.name, cat: 'weapon', slot: 'mainhand', style: st, name: w.name, icon: w.icon, min: w.min, metal: !WOODEN.test(w.name), info: `${w.dice[0]}d${w.dice[1]}${isTwoHanded(w.name) ? ' · 2 mãos' : ''}` });
+  const type = (t: ArmorType) => ({ cloth: 'Tecido', light: 'Leve', medium: 'Média', heavy: 'Pesada' })[t];
+  for (const a of ARMORS) if (ok(a.min)) out.push({ key: 'b:' + a.name, cat: 'body', slot: 'body', name: a.name, icon: a.type === 'cloth' ? '🥋' : a.type === 'light' ? '🧥' : '🛡️', min: a.min, metal: ARMOR_RANK[a.type] >= 2, info: `CA ${a.ac} · ${type(a.type)}` });
+  for (const a of HEADS) if (ok(a.min)) out.push({ key: 'h:' + a.name, cat: 'head', slot: 'head', name: a.name, icon: '⛑️', min: a.min, metal: ARMOR_RANK[a.type] >= 2, info: type(a.type) });
+  for (const a of LEGS) if (ok(a.min)) out.push({ key: 'l:' + a.name, cat: 'legs', slot: 'legs', name: a.name, icon: '🦿', min: a.min, metal: ARMOR_RANK[a.type] >= 2, info: type(a.type) });
+  for (const sh of SHIELDS) if (ok(sh.min)) out.push({ key: 's:' + sh.name, cat: 'shield', slot: 'offhand', name: sh.name, icon: '🛡️', min: sh.min, metal: !WOODEN.test(sh.name), info: 'Escudo' });
+  return out;
+}
+const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** Forja o item (a base escolhida, na raridade escolhida). */
+export function craftItem(c: Craftable, rarity: Rarity): Item {
+  return genItem({ slot: c.slot, level: c.min, style: c.style ?? 'melee', rarity, armorMax: 'heavy', off: c.slot === 'offhand' ? ['shield'] : undefined, only: new RegExp('^' + esc(c.name) + '$', 'i') });
 }

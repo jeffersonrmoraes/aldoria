@@ -8,6 +8,7 @@ import { RACE_BY_ID } from '../data/races';
 import { STARTER_WEAPONS, MONK_ONLY_RE, MONK_WEAPON_RE, allowedOff, findBase, ItemStat, Item, Slot, migrateItem, starterArmor, starterShield } from '../data/items';
 import { bus } from './bus';
 import { Look, sanitizeLook } from '../data/looks';
+import type { Mats } from '../data/materials';
 
 export interface QuestProgress { progress: number; state: 'active' | 'ready' | 'done' }
 
@@ -26,6 +27,7 @@ export interface PlayerState {
   items: Item[];
   equipped: Partial<Record<Slot, Item>>;
   potions: { heal: number; energy: number };
+  mats?: Mats;                 // materiais de forja (ferro, madeira, pedra, ouro, diamante)
   quests: Record<string, QuestProgress>;
   kills: number;
   pos: { x: number; y: number };
@@ -164,7 +166,7 @@ export function newPlayer(name: string, raceId: string, classId: string, tone: s
   const offhand = cls.art.shield && !weapon.twoHanded ? starterShield() : undefined;
   const p: PlayerState = {
     v: 3, name, raceId, classId, tone, ...(look ? { look: sanitizeLook(look) } : {}), level: 1, xp: 0, gold: 20, hp: 1, en: 1,
-    items: [], equipped: { mainhand: weapon, body: armor, ...(offhand ? { offhand } : {}) }, potions: { heal: 3, energy: 1 }, quests: {}, kills: 0,
+    items: [], equipped: { mainhand: weapon, body: armor, ...(offhand ? { offhand } : {}) }, potions: { heal: 3, energy: 1 }, mats: {}, quests: {}, kills: 0,
     pos: { x: 0, y: 0 }, story: { fragments: [], seen: {}, ended: false },
   };
   const d = derive(p);
@@ -214,6 +216,7 @@ export function loadSave(n = activeSlot): PlayerState | null {
     delete p.hair;
     if (p.look) p.look = sanitizeLook(p.look);
     migrateEquipment(p);
+    p.mats ??= {};
     if (!p.story) p.story = { fragments: [], seen: {}, ended: false };
     if (p.v < 2) { p.pos = { x: 0, y: 0 }; p.v = 2; }
     if (p.v < 3) { p.pos = { x: 0, y: 0 }; delete p.explored; p.v = 3; } // mapa muito maior: reposiciona na vila e refaz a exploração
