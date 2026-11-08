@@ -241,6 +241,7 @@ export function initHud() {
       <div id="netstat" class="panel hidden" style="padding:3px 10px;font-size:12px"></div>
       <div class="panel" style="padding:4px 10px;font-size:13px">🪙 <b id="gold" style="color:var(--gold)"></b></div>
       <div class="btns hit"><button id="bi">Inventário (I)</button><button id="bc">Personagem (C)</button><button id="bk">Habilidades (K)</button><button id="bm">Mapa (M)</button><button id="bp">Menu (Esc)</button><button id="bj">Diário (L)</button><button id="bh">Ajuda (F1)</button></div>
+      <div id="compass" class="panel hidden"><span id="cmp-arrow">➤</span><span id="cmp-txt"></span></div>
       <div id="quests" class="panel hidden"></div>
     </div>
     <div id="bossbar" class="panel hidden"><div id="bname"></div><div class="bar" style="height:14px"><i id="bhp" style="background:#c0392b"></i></div><div id="bcast" style="display:none"><div id="bcn"></div><div class="bar" style="height:8px"><i id="bci" style="background:#ffb03a"></i></div></div></div>
@@ -283,6 +284,14 @@ export function initHud() {
   bus.removeAllListeners('hud'); bus.removeAllListeners('log'); bus.removeAllListeners('zone');
   bus.removeAllListeners('levelup'); bus.removeAllListeners('death'); bus.removeAllListeners('respawn');
   bus.removeAllListeners('npc'); bus.removeAllListeners('nope');
+  bus.removeAllListeners('compass');
+  bus.on('compass', (c: { ang: number; dist: number; name: string; icon: string } | null) => {
+    const el = q('#compass');
+    if (!c) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    q('#cmp-arrow').style.transform = `rotate(${(c.ang * 180 / Math.PI).toFixed(0)}deg)`;
+    q('#cmp-txt').textContent = `${c.icon} ${c.name} · ${Math.round(c.dist)} m`;
+  });
   bus.on('hud', onHud);
   bus.on('log', onLog);
   bus.on('zone', onZone);
@@ -549,6 +558,11 @@ function unequip(slot: Slot) {
   renderInv();
 }
 
+let invTab: 'bag' | 'mats' = 'bag';
+const MAT_USE: Record<string, string> = {
+  wood: 'Cabos, arcos, cajados e escudos de madeira.', stone: 'Armaduras e escudos pesados; base de martelos e maças.',
+  iron: 'Metal de espadas, machados e armaduras. O mais usado na Forja.', gold: 'Itens Raros ou melhores e peças ornamentadas.', diamond: 'Itens Épicos e Lendários.',
+};
 function renderInv() {
   const d = derive(player);
   const eq = SLOT_ORDER.map((s) => {
@@ -562,11 +576,14 @@ function renderInv() {
       : '<div class="it" style="opacity:.35"></div>';
   }).join('');
   const w = setWin(`<h3>Inventário <span style="font-size:12px;color:#a79cc4">${player.items.length}/${BAG_SIZE} · CA ${d.ac} · PV ${d.maxHp}</span>${closeBtn}</h3>
-    <div class="eq">${eq}</div><div class="grid">${cells}</div>
-    <div class="mats">${MATS.map((m) => `<span title="${m.name}" style="color:${m.color}">${m.icon} ${player.mats?.[m.id] ?? 0}</span>`).join('')}</div>
+    <div class="tabs"><button data-itab="bag" class="${invTab === 'bag' ? 'on' : ''}">🎒 Mochila</button><button data-itab="mats" class="${invTab === 'mats' ? 'on' : ''}">🧱 Materiais</button></div>
+    ${invTab === 'bag' ? `<div class="eq">${eq}</div><div class="grid">${cells}</div>
     <div class="tip" id="tip">${selItem ? itemTip(selItem) : 'Clique em um item para ver detalhes. Clique em um equipamento para removê-lo.'}</div>
-    <div class="row" id="acts"></div>`);
+    <div class="row" id="acts"></div>` : `<div style="font-size:12px;color:#a79cc4;margin-bottom:6px">Materiais caem dos monstros (chefes e elites dão mais) e servem para criar equipamento na Forja da Ferreira Durga.</div>
+    ${MATS.map((m) => `<div class="qrow" style="display:flex;gap:10px;align-items:center"><span style="font-size:26px">${m.icon}</span><div style="flex:1"><b style="color:${m.color}">${m.name}</b><br><span style="font-size:12px;color:#a79cc4">${MAT_USE[m.id] ?? ''}</span></div><b style="font-size:18px;color:${m.color}">${player.mats?.[m.id] ?? 0}</b></div>`).join('')}`}`);
   bindClose(w);
+  w.querySelectorAll<HTMLElement>('[data-itab]').forEach((b) => (b.onclick = () => { invTab = b.dataset.itab as 'bag' | 'mats'; renderInv(); }));
+  if (invTab === 'mats') return;
   w.querySelectorAll<HTMLElement>('[data-eq]').forEach((e) => (e.onclick = () => unequip(e.dataset.eq as Slot)));
   w.querySelectorAll<HTMLElement>('[data-n]').forEach((e) => (e.onclick = () => { selItem = player.items[Number(e.dataset.n)]; renderInv(); }));
   if (selItem) {

@@ -519,7 +519,27 @@ export class World3D {
   // ---------- monstros do servidor (modo online) ----------
   /** objetos das missões de achar coisas (visíveis só com a missão ativa e ainda não recolhidos) */
   private finds: { key: string; q: string; x: number; y: number; g: THREE.Group; core: THREE.Mesh }[] = [];
+  private cmpAt = 0;
+  /** bússola: aponta para o objeto de missão mais próximo (relativo à câmera) */
+  private updateCompass(now: number) {
+    if (now < this.cmpAt) return;
+    this.cmpAt = now + 90;
+    let best: (typeof this.finds)[number] | null = null, bd = Infinity;
+    if (this.loc === this.over) for (const f of this.finds) {
+      const st = player.quests[f.q];
+      if (!st || st.state !== 'active' || st.got?.includes(f.key)) continue;
+      const d = Math.hypot(f.x - this.p.x, f.y - this.p.y);
+      if (d < bd) { bd = d; best = f; }
+    }
+    if (!best) { bus.emit('compass', null); return; }
+    const dx = (best.x - this.p.x) / TILE, dz = (best.y - this.p.y) / TILE;
+    const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
+    const sx = dx * cy - dz * sy, up = -dx * sy - dz * cy;     // componentes na tela (direita, frente)
+    const fq = QUESTS.find((z) => z.id === best!.q)!;
+    bus.emit('compass', { ang: Math.atan2(-up, sx) , dist: bd / TILE, name: fq.find!.name, icon: fq.find!.icon });
+  }
   private updateFinds(now: number) {
+    this.updateCompass(now);
     for (const f of this.finds) {
       const st = player.quests[f.q];
       const on = this.loc === this.over && !!st && st.state === 'active' && !st.got?.includes(f.key);
