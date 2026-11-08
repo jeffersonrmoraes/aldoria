@@ -5,12 +5,8 @@
 import * as THREE from 'three';
 import type { SkinnedActor } from './actors';
 import { Look, OUTFIT_TINT } from '../data/looks';
-import { cloneModel } from './models';
 
 const V3 = THREE.Vector3;
-const SKULL: Record<string, { x: number; y: number; z: number }> = {
-  Knight: { x: 0.42, y: 0.46, z: 0.42 }, Mage: { x: 0.36, y: 0.39, z: 0.36 }, Rogue: { x: 0.42, y: 0.45, z: 0.42 }, Barbarian: { x: 0.36, y: 0.37, z: 0.36 },
-};   // semi-eixos do crânio liso (fração do tamanho da caixa da cabeça)
 const HAT = /(Hat|Helmet)$/;
 const mat = (c: string, e = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0, emissive: e ? c : '#000', emissiveIntensity: e, side: THREE.DoubleSide });
 
@@ -57,45 +53,6 @@ class Surface {
   }
 }
 
-/** Cabelo comprido do Ladino (malha real do modelo), extraído uma vez para ser usado nas outras cabeças. */
-interface HairMesh { pos: Float32Array; col: Float32Array; ids: number[]; c: THREE.Vector3; E: number; sz: THREE.Vector3 }
-let rogueHairCache: HairMesh | null = null;
-function rogueHair(): HairMesh | null {
-  if (rogueHairCache) return rogueHairCache;
-  const m = cloneModel('Rogue'); m.updateMatrixWorld(true);
-  let head: THREE.SkinnedMesh | null = null;
-  m.traverse((o) => { if (/_Head$/.test(o.name) && (o as THREE.SkinnedMesh).isSkinnedMesh) head = o as THREE.SkinnedMesh; });
-  if (!head) return null;
-  const h = head as THREE.SkinnedMesh; h.skeleton.update();
-  const mm = h.material as THREE.MeshStandardMaterial, img = mm.map?.image as (CanvasImageSource & { width: number; height: number }) | undefined;
-  if (!img) return null;
-  const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
-  const g = cv.getContext('2d')!; g.drawImage(img, 0, 0);
-  const td = g.getImageData(0, 0, cv.width, cv.height).data;
-  const box = new THREE.Box3().setFromObject(h), c = box.getCenter(new V3()), sz = box.getSize(new V3());
-  const E = c.y + EYES.Rogue.ey * sz.y, u = sz.y;
-  const pos = h.geometry.attributes.position, uv = h.geometry.attributes.uv, n = pos.count;
-  const wp = new Float32Array(n * 3), col = new Float32Array(n * 3), ok = new Uint8Array(n), t = new V3();
-  const avg = [0, 0, 0]; let na = 0;
-  for (let i = 0; i < n; i++) {
-    t.fromBufferAttribute(pos, i); h.applyBoneTransform(i, t); t.applyMatrix4(h.matrixWorld);
-    wp[i * 3] = t.x; wp[i * 3 + 1] = t.y; wp[i * 3 + 2] = t.z;
-    const px = Math.min(cv.width - 1, Math.floor(uv.getX(i) * cv.width)), py = Math.min(cv.height - 1, Math.floor(uv.getY(i) * cv.height));
-    const k = (py * cv.width + px) * 4, r = td[k], gg = td[k + 1], b = td[k + 2];
-    const skin = r >= 200 && gg >= 150 && b >= 105 && r - b >= 45, metal = b >= gg && gg >= r && r + gg + b > 400, cloth = b > r + 25, dark = r < 50 && gg < 50 && b < 60;
-    const face = t.z > c.z && t.y < E + 0.1 * u && Math.abs(t.x - c.x) < 0.3 * u;       // olhos e sobrancelhas
-    ok[i] = skin || metal || cloth || dark || face ? 0 : 1;
-    col[i * 3] = r / 255; col[i * 3 + 1] = gg / 255; col[i * 3 + 2] = b / 255;
-    if (ok[i]) { avg[0] += r / 255; avg[1] += gg / 255; avg[2] += b / 255; na++; }
-  }
-  if (!na) return null;
-  for (let j = 0; j < 3; j++) avg[j] /= na;
-  for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) col[i * 3 + j] = col[i * 3 + j] / Math.max(0.05, avg[j]);   // 1 = cor média do cabelo
-  const idx = h.geometry.index!.array, ids: number[] = [];
-  for (let i = 0; i < idx.length; i += 3) if (ok[idx[i]] && ok[idx[i + 1]] && ok[idx[i + 2]]) ids.push(idx[i], idx[i + 1], idx[i + 2]);
-  return (rogueHairCache = { pos: wp, col, ids, c, E, sz });
-}
-
 export function applyLook(a: SkinnedActor, look: Look, tone: string) {
   // --- roupa: tinge corpo, braços, pernas e capa ---
   const tint = OUTFIT_TINT[look.outfit];
@@ -121,14 +78,10 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
   const eye = EYES[a.spec.model] ?? EYES.Knight;
   const E = c.y + eye.ey * sz.y;                    // altura dos olhos
   const EX = eye.ex * sz.x;                         // afastamento dos olhos
-  const native = a.spec.model === 'Rogue' ? 'f' : 'm';
-  const swap = (look.gender ?? native) !== native;
-  const style = !swap ? 'none' : native === 'f' ? 'wavy' : 'rogue';   // modelo feminino → cabelo masculino (ondulado, médio); masculino → o cabelo comprido do Ladino
   const eyeC = new THREE.Color(look.eyeColor);
-  const hairC = new THREE.Color(look.hairColor), skinC = new THREE.Color(tone);
 
-  // --- cor do cabelo desenhado no modelo (cabelo, sobrancelhas, barba): vira a cor escolhida ---
-  recolorBaked(a, head, c, E, u, look, hairC, skinC, eyeC, swap, EX);
+  // --- cor dos olhos (os olhos desenhados no modelo mudam de cor) ---
+  recolorBaked(head, c, E, u, eyeC, EX);
   a.model.updateMatrixWorld(true);
   const S = new Surface(head);                      // superfície já alisada (cabelo do modelo removido)
 
@@ -198,52 +151,11 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
     return add(g, m, new V3());
   };
 
-  const hairM = mat(look.hairColor), skinM = mat(tone);
+  const hairM = mat('#3a2616'), skinM = mat(tone);
   const sph = (n = 10) => new THREE.SphereGeometry(1, n, Math.round(n * 0.75));
   const cone = (n = 6) => new THREE.ConeGeometry(1, 1, n);
   const boxg = () => new THREE.BoxGeometry(1, 1, 1);
   const cylg = (n = 16) => new THREE.CylinderGeometry(1, 1, 1, n);
-
-  // --- cabelo desenhado: só para o gênero oposto ao do cabelo original do modelo ---
-  if (!hatShown && !['hood', 'helm', 'horns'].includes(look.head)) {
-    const T = 0.032;                                 // espessura do cabelo
-    /** cortina de cabelo que contorna a nuca e as laterais (abre à frente, onde fica o rosto) */
-    const curtain = (yTop: number, h: number, span: number, pad = 0.05, wave = false) => {
-      const r = ring(E + yTop * u);
-      const g = new THREE.CylinderGeometry(1, 1.14, 1, wave ? 48 : 28, wave ? 6 : 1, true, Math.PI - span / 2, span);
-      if (wave) { const ps = g.attributes.position; for (let i = 0; i < ps.count; i++) { const x = ps.getX(i), z = ps.getZ(i), y = ps.getY(i), f = 1 + 0.07 * Math.sin(Math.atan2(x, z) * 9 + y * 11); ps.setXYZ(i, x * f, y, z * f); } g.computeVertexNormals(); }
-      add(g, hairM, new V3(r.cx, E + (yTop - h / 2) * u, r.cz - 0.02 * u), undefined, [r.rx + pad * u, h * u, r.rz + pad * u]);
-    };
-    const hatTop = look.head === 'witch' || look.head === 'feather';      // chapéus de aba: só o cabelo que sai por baixo
-    const sh = (...args: Parameters<typeof shell>) => { if (!hatTop) shell(...args); };
-    switch (hatTop ? 'none' : style) {
-      case 'none': break;
-      case 'rogue': {                                  // malha do cabelo do Ladino, ajustada a esta cabeça
-        const R = rogueHair();
-        if (!R) { sh(hairM, T, 0.15, -0.1, -0.4); curtain(0.0, 0.62, 3.6); break; }
-        const k = (u / R.sz.y) * 1.04, rel = (a: number, b: number) => Math.min(1.25, Math.max(0.9, a / b / (u / R.sz.y)));
-        const kx = k * rel(sz.x, R.sz.x), kz = k * rel(sz.z, R.sz.z);
-        const pos = new Float32Array(R.pos.length);
-        for (let i = 0; i < R.pos.length; i += 3) {
-          pos[i] = c.x + (R.pos[i] - R.c.x) * kx; pos[i + 1] = E + (R.pos[i + 1] - R.E) * k; pos[i + 2] = c.z + (R.pos[i + 2] - R.c.z) * kz;
-        }
-        const g = new THREE.BufferGeometry();
-        g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(R.col, 3));
-        g.setIndex(R.ids); g.computeVertexNormals();
-        add(g, new THREE.MeshStandardMaterial({ color: hairC, vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }), new V3());
-        break;
-      }
-      case 'wavy': {                                   // cabelo médio ondulado, jogado para trás, com mechas caindo dos lados
-        shell(hairM, 0.05, 0.22, -0.02, -0.3);
-        curtain(0.04, 0.3, 4.3, 0.07, true);
-        for (const sd of [-1, 1]) for (const [dx, dy, ln] of [[0.22, 0.2, 0.07], [0.3, 0.12, 0.09], [0.34, 0.03, 0.1]]) {
-          const f = front(c.x + sd * dx * u, E + dy * u);
-          add(sph(8), hairM, out(f, 0.012), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, sd * 0.35)), [0.05 * u, ln * u, 0.035 * u]);
-        }
-        break;
-      }
-    }
-  }
 
   // --- adereço de cabeça ---
   const gold = mat('#e8c050'), cloth = mat(tint ?? '#7a4ad0');
@@ -342,9 +254,9 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
   }
 }
 
-/** Troca a cor do cabelo/sobrancelhas/barba desenhados na textura da cabeça (por cor de vértice). */
+/** Troca a cor dos olhos desenhados na textura da cabeça (por cor de vértice). O resto do modelo fica como o original. */
 const texCache = new WeakMap<object, { w: number; h: number; d: Uint8ClampedArray }>();
-function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3, E: number, u: number, look: Look, hairC: THREE.Color, skinC: THREE.Color, eyeC: THREE.Color, swap: boolean, EX: number) {
+function recolorBaked(head: THREE.SkinnedMesh, c: THREE.Vector3, E: number, u: number, eyeC: THREE.Color, EX: number) {
   const m = head.material as THREE.MeshStandardMaterial;
   const img = m.map?.image as CanvasImageSource & { width: number; height: number } | undefined;
   if (!img) return;
@@ -359,57 +271,16 @@ function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3
   const pos = geo.attributes.position, uv = geo.attributes.uv;
   const cols = new Float32Array(pos.count * 3).fill(1);
   const t = new V3(), base = m.color.clone();
-  // cor real da pele no modelo (média dos vértices de pele): evita diferença de tom ao "raspar" o cabelo
-  const skinAvg = new THREE.Color(0, 0, 0); let ns = 0;
-  for (let i = 0; i < pos.count; i++) {
-    const px = Math.min(tex.w - 1, Math.floor(uv.getX(i) * tex.w)), py = Math.min(tex.h - 1, Math.floor(uv.getY(i) * tex.h));
-    const k = (py * tex.w + px) * 4, r = tex.d[k], g = tex.d[k + 1], b = tex.d[k + 2];
-    if (r >= 200 && g >= 150 && b >= 105 && r - b >= 45) { skinAvg.add(new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiply(base)); ns++; }
-  }
-  if (ns) skinAvg.multiplyScalar(1 / ns); else skinAvg.copy(skinC);
-  const showOld = !swap;                              // cabelo original do modelo (só no gênero do modelo)
-  const flat = swap && a.spec.model !== 'Barbarian';   // o Bárbaro/Monge já tem a cabeça lisa do modelo     // careca: alisa o topete/volume do cabelo do modelo
-  const flatIdx: number[] = [], flatW: THREE.Vector3[] = [];
-  const noBeard = a.spec.model === 'Barbarian' && look.face !== 'beard';
   for (let i = 0; i < pos.count; i++) {
     t.fromBufferAttribute(pos, i); head.applyBoneTransform(i, t); t.applyMatrix4(head.matrixWorld);
     const px = Math.min(tex.w - 1, Math.floor(uv.getX(i) * tex.w)), py = Math.min(tex.h - 1, Math.floor(uv.getY(i) * tex.h));
     const k = (py * tex.w + px) * 4, r = tex.d[k], g = tex.d[k + 1], b = tex.d[k + 2];
-    const skinTex = r >= 200 && g >= 150 && b >= 105 && r - b >= 45;
-    const skin = skinTex && !(a.spec.model === 'Knight' && t.y > E + 0.1 * u);       // cabelo loiro tem cor de pele: acima da testa conta como cabelo
-    const inEye = !skin && r < 50 && g < 50 && b < 60 && t.z > c.z && ((Math.abs(t.x - c.x) - EX) / (0.065 * u)) ** 2 + ((t.y - E) / (0.075 * u)) ** 2 < 1;
-    const metal = b >= g && g >= r && r + g + b > 400;
-    const cloth = b > r + 25;
-    if (skin || (!inEye && (metal || cloth))) continue;
-    const beard = t.y < E - 0.06 * u && t.z > c.z;
-    const brow = !inEye && t.z > c.z && t.y >= E + 0.05 * u && t.y < E + 0.1 * u && Math.abs(t.x - c.x) < 0.3 * u;
-    // olhos desenhados no modelo somem (os olhos vêm do editor); cabelo do modelo só se escolhido
-    const target = inEye ? eyeC : beard ? (noBeard ? skinAvg : hairC) : brow ? hairC : (showOld || t.y > E + 0.03 * u ? hairC : skinAvg);
-    if (flat && !inEye && !beard && !brow) { flatIdx.push(i); flatW.push(t.clone()); }
+    const inEye = r < 50 && g < 50 && b < 60 && t.z > c.z && ((Math.abs(t.x - c.x) - EX) / (0.065 * u)) ** 2 + ((t.y - E) / (0.075 * u)) ** 2 < 1;
+    if (!inEye) continue;
     const orig = new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiply(base);
-    cols[i * 3] = Math.min(500, target.r / Math.max(0.004, orig.r));
-    cols[i * 3 + 1] = Math.min(500, target.g / Math.max(0.004, orig.g));
-    cols[i * 3 + 2] = Math.min(500, target.b / Math.max(0.004, orig.b));
-  }
-  if (flatIdx.length) {
-    // elipsoide liso do crânio: vértices de cabelo que passam dele são puxados para dentro (escala em torno do centro, vale no espaço local)
-    const cw = new V3(), cl = new V3(), w = new V3(), l = new V3();
-    for (let i = 0; i < pos.count; i++) { l.fromBufferAttribute(pos, i); cl.add(l); w.copy(l); head.applyBoneTransform(i, w); w.applyMatrix4(head.matrixWorld); cw.add(w); }
-    cw.multiplyScalar(1 / pos.count); cl.multiplyScalar(1 / pos.count);
-    const hb = new THREE.Box3().setFromObject(head).getSize(new V3());
-    const sk = SKULL[a.spec.model] ?? SKULL.Knight, rx = sk.x * hb.x, ry = sk.y * hb.y, rz = sk.z * hb.z;
-    const key = (i: number) => `${Math.round(pos.getX(i) * 2e4)},${Math.round(pos.getY(i) * 2e4)},${Math.round(pos.getZ(i) * 2e4)}`;
-    const kmap = new Map<string, number>();
-    flatIdx.forEach((i, n) => {
-      const o = flatW[n].clone().sub(cw);
-      const m = (Math.abs(o.x / rx) ** 3 + Math.abs(o.y / ry) ** 3 + Math.abs(o.z / rz) ** 3) ** (1 / 3);   // superelipsoide: crânio arredondado meio quadrado, como o do Monge
-      if (m > 1) { const k0 = key(i); kmap.set(k0, Math.min(kmap.get(k0) ?? 1, 1 / m)); }
-    });
-    for (let i = 0; i < pos.count; i++) {      // vértices duplicados (costuras de UV) andam juntos, senão abrem rachaduras
-      const kk = kmap.get(key(i)); if (kk === undefined) continue;
-      l.fromBufferAttribute(pos, i); l.sub(cl).multiplyScalar(kk).add(cl); pos.setXYZ(i, l.x, l.y, l.z);
-    }
-    pos.needsUpdate = true; geo.computeBoundingSphere(); geo.computeBoundingBox();
+    cols[i * 3] = Math.min(500, eyeC.r / Math.max(0.004, orig.r));
+    cols[i * 3 + 1] = Math.min(500, eyeC.g / Math.max(0.004, orig.g));
+    cols[i * 3 + 2] = Math.min(500, eyeC.b / Math.max(0.004, orig.b));
   }
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   m.vertexColors = true; m.needsUpdate = true;
