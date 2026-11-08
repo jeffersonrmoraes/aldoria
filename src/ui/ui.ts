@@ -12,7 +12,7 @@ import { CURRENT_CHAPTER } from '../chapters';
 import { DUNGEONS, EPILOGUE, FRAGMENTS, FRAGMENT_BY_ID, MAIN_QUESTS, SAGE_INTRO } from '../chapters/story1';
 import { frameIcon, itemFrameName } from '../art/art';
 import { portrait } from '../art/portrait';
-import { EYE_COLORS, FACES, HEADGEARS, Look, OUTFITS, Opt, defaultLook, heightScale, randomLook } from '../data/looks';
+import { EYE_COLORS, Look, OUTFITS, Opt, defaultLook, heightScale, randomLook } from '../data/looks';
 import { bus } from '../game/bus';
 import { attrTree, attrPointsLeft, attrPointsTotal, buyNode, nodeState, respecCost, skillPointsLeft, skillPointsTotal, skillTree, Tree } from '../data/progression';
 import { ENCHANTS, ROMAN, enchantCost, enchLine } from '../data/enchants';
@@ -110,11 +110,11 @@ export function showMenu(start: () => void) {
   }));
 }
 
-type CTab = 'race' | 'class' | 'eyes' | 'outfit' | 'head' | 'face' | 'height' | 'skin';
+type CTab = 'race' | 'class' | 'eyes' | 'outfit' | 'height' | 'skin';
 const CTABS: { id: CTab; icon: string; name: string }[] = [
   { id: 'race', icon: '🧝', name: 'Raça' }, { id: 'class', icon: '⚔️', name: 'Classe' }, 
-  { id: 'eyes', icon: '👁️', name: 'Olhos' }, { id: 'outfit', icon: '👕', name: 'Roupa' }, { id: 'head', icon: '🎩', name: 'Cabeça' },
-  { id: 'face', icon: '🧔', name: 'Rosto' }, { id: 'height', icon: '📏', name: 'Altura' }, { id: 'skin', icon: '🎨', name: 'Pele' },
+  { id: 'eyes', icon: '👁️', name: 'Olhos' }, { id: 'outfit', icon: '👕', name: 'Roupa' }, 
+  { id: 'height', icon: '📏', name: 'Altura' }, { id: 'skin', icon: '🎨', name: 'Pele' },
 ];
 const thumbCache = new Map<string, string>();
 
@@ -149,8 +149,6 @@ function showCreate(start: () => void, slot: number) {
         <div class="desc">PV ${d.maxHp} · CA ${d.ac} · Energia ${d.maxEn}<br>${cls.skills.map((s) => `${s.icon} <b>${s.name}</b> (nv ${s.unlock})`).join(' · ')}</div>`;
       case 'eyes': return `<h4>Cor dos olhos</h4>${swatches('eyeColor', EYE_COLORS)}`;
       case 'outfit': return `<h4>Cor da roupa</h4>${optGrid('outfit', OUTFITS, () => ({}), 'full')}`;
-      case 'head': return `<h4>Adereço de cabeça</h4>${optGrid('head', HEADGEARS)}`;
-      case 'face': return `<h4>Rosto</h4>${optGrid('face', FACES)}<div class="desc">Barba, bigode e cavanhaque vêm em castanho-escuro.</div>`;
       case 'height': return `<h4>Altura</h4><input type="range" id="hgt" min="0" max="100" value="${Math.round(st.look.height * 100)}"><div class="desc" style="text-align:center">${st.look.height < 0.33 ? 'Baixo' : st.look.height > 0.66 ? 'Alto' : 'Mediano'} · ${Math.round(heightScale(st.look.height) * 100)}%</div>`;
       case 'skin': return `<h4>${race.id === 'dragonborn' ? 'Cor das escamas' : 'Tom da pele'}</h4><div class="swatches big">${race.tones.map((c) => `<div class="sw ${c === st.tone ? 'sel' : ''}" data-h="${c}" style="background:${c}"></div>`).join('')}</div>`;
     }

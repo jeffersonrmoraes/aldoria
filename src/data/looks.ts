@@ -1,6 +1,5 @@
-// Aparência do personagem (editor de criação): cabelo, olhos, altura, roupa, cabeça, rosto.
-// Tudo é puro/serializável (guardado no save). O desenho 3D fica em `src/art/actors.ts` (`applyLook`).
-// Inspirado nas opções de aparência de D&D (cabelo, olhos, porte, trajes, adereços de cabeça, pinturas/cicatrizes).
+// Aparência do personagem (editor de criação): cor dos olhos, altura e cor da roupa.
+// Tudo é puro/serializável (guardado no save). O desenho 3D fica em `src/art/look3d.ts` (`applyLook`).
 
 export interface Opt { id: string; name: string }
 
@@ -8,8 +7,6 @@ export interface Look {
   eyeColor: string;   // cor dos olhos (hex)
   height: number;     // 0 = baixo … 1 = alto (escala 0,90–1,10)
   outfit: string;     // paleta da roupa
-  head: string;       // adereço de cabeça
-  face: string;       // pelos/marcas no rosto
 }
 
 export const EYE_COLORS = ['#3a2a1a', '#7a4a22', '#2a6ad0', '#2a9a5a', '#7a8a3a', '#8a8a95', '#a02a2a', '#8a3aa0', '#e0b020', '#30c8d8'];
@@ -20,22 +17,12 @@ export const OUTFITS: Opt[] = [
 export const OUTFIT_TINT: Record<string, string> = {
   crimson: '#e0706a', azure: '#6a9ae8', forest: '#78b878', shadow: '#6a6a78', ivory: '#fff4dc', gold: '#f0cc6a', violet: '#b08ae0', ember: '#f09a58',
 };
-export const HEADGEARS: Opt[] = [
-  { id: 'default', name: 'Da Classe' }, { id: 'none', name: 'Sem nada' }, { id: 'headband', name: 'Faixa' }, { id: 'circlet', name: 'Tiara' },
-  { id: 'hood', name: 'Capuz' }, { id: 'witch', name: 'Chapéu de Mago' }, { id: 'feather', name: 'Chapéu de Bardo' }, { id: 'helm', name: 'Elmo Aberto' },
-  { id: 'horns', name: 'Elmo de Chifres' }, { id: 'crown', name: 'Coroa' },
-];
-export const FACES: Opt[] = [
-  { id: 'none', name: 'Limpo' }, { id: 'beard', name: 'Barba' }, { id: 'goatee', name: 'Cavanhaque' }, { id: 'stache', name: 'Bigode' },
-  { id: 'scar', name: 'Cicatriz' }, { id: 'paint', name: 'Pintura de Guerra' }, { id: 'freckles', name: 'Sardas' }, { id: 'patch', name: 'Tapa-olho' },
-  { id: 'goggles', name: 'Óculos de Artífice' },
-];
 
 export const HEIGHT_MIN = 0.9, HEIGHT_MAX = 1.1;
 export const heightScale = (h: number) => HEIGHT_MIN + Math.min(1, Math.max(0, h)) * (HEIGHT_MAX - HEIGHT_MIN);
 
 export const defaultLook = (): Look => ({
-  eyeColor: EYE_COLORS[0], height: 0.5, outfit: 'default', head: 'default', face: 'none',
+  eyeColor: EYE_COLORS[0], height: 0.5, outfit: 'default',
 });
 
 const pick = (v: unknown, list: Opt[], d: string) => (typeof v === 'string' && list.some((o) => o.id === v) ? v : d);
@@ -50,7 +37,7 @@ export function sanitizeLook(raw: unknown): Look {
   return {
     eyeColor: color(r.eyeColor, d.eyeColor),
     height: Number.isFinite(h) ? Math.min(1, Math.max(0, h)) : d.height,
-    outfit: pick(r.outfit, OUTFITS, d.outfit), head: pick(r.head, HEADGEARS, d.head), face: pick(r.face, FACES, d.face),
+    outfit: pick(r.outfit, OUTFITS, d.outfit),
   };
 }
 
@@ -59,6 +46,6 @@ export function randomLook(rnd: () => number = Math.random): Look {
   const p = <T,>(a: T[]) => a[Math.floor(rnd() * a.length)];
   return {
     eyeColor: p(EYE_COLORS), height: rnd(),
-    outfit: p(OUTFITS).id, head: rnd() < 0.5 ? 'default' : p(HEADGEARS).id, face: rnd() < 0.5 ? 'none' : p(FACES).id,
+    outfit: p(OUTFITS).id,
   };
 }
