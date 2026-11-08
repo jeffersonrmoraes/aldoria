@@ -322,14 +322,15 @@ export function generateWorld(): WorldData {
     if (!fq.find) continue;
     const fr = mulberry32(9100 + fq.id.charCodeAt(1) * 31);
     let n = 0, guard = 0;
-    while (n < fq.count && guard++ < 30000) {
+    const total = fq.count * 3;   // 3× mais objetos do que o necessário: fica fácil achar
+    while (n < total && guard++ < 30000) {
       const x = 4 + Math.floor(fr() * (W - 8)), y = 4 + Math.floor(fr() * (H - 8));
       const zn = zoneAt(x, y);
       if (fq.find.zone === 'any' ? !wild.includes(zn) : zn !== fq.find.zone) continue;
       if (blocked(x, y) || tiles[y][x] === T.water) continue;
       if (dist(x, y) <= TOWN_R + 4 || VILLAGES.some((v) => Math.hypot(x - v.cx, y - v.cy) <= v.r + 3)) continue;
       if (DUNGEONS.some((d) => Math.hypot(x - d.entrance.tx, y - d.entrance.ty) < 6)) continue;
-      if (finds.some((f) => f.q === fq.id && Math.hypot(f.x / TILE - x, f.y / TILE - y) < 12)) continue;
+      if (finds.some((f) => f.q === fq.id && Math.hypot(f.x / TILE - x, f.y / TILE - y) < 5)) continue;
       finds.push({ q: fq.id, i: n, x: x * TILE + 8, y: y * TILE + 8 });
       n++;
     }

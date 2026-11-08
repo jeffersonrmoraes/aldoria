@@ -526,7 +526,7 @@ export class World3D {
       f.g.visible = on;
       if (!on) continue;
       f.core.position.y = 0.7 + Math.sin(now / 400 + f.x) * 0.12; f.core.rotation.y = now / 600;
-      if (Math.hypot(f.x - this.p.x, f.y - this.p.y) < TILE * 1.6) {
+      if (Math.hypot(f.x - this.p.x, f.y - this.p.y) < TILE * 2.4) {
         const fq = QUESTS.find((z) => z.id === f.q)!;
         (st.got ??= []).push(f.key);
         st.progress = st.got.length;
