@@ -7,6 +7,9 @@ import type { SkinnedActor } from './actors';
 import { Look, OUTFIT_TINT } from '../data/looks';
 
 const V3 = THREE.Vector3;
+const SKULL: Record<string, { x: number; y: number; z: number }> = {
+  Knight: { x: 0.42, y: 0.4, z: 0.42 }, Mage: { x: 0.36, y: 0.34, z: 0.36 }, Rogue: { x: 0.42, y: 0.4, z: 0.42 }, Barbarian: { x: 0.36, y: 0.37, z: 0.36 },
+};   // semi-eixos do crânio liso (fração do tamanho da caixa da cabeça)
 const HAT = /(Hat|Helmet)$/;
 const mat = (c: string, e = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0, emissive: e ? c : '#000', emissiveIntensity: e, side: THREE.DoubleSide });
 
@@ -354,13 +357,15 @@ function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3
   }
   if (ns) skinAvg.multiplyScalar(1 / ns); else skinAvg.copy(skinC);
   const showOld = look.oldHair === 'model';           // cabelo original do modelo (opcional)
+  const flat = look.hair === 'none' && !showOld;     // careca: alisa o topete/volume do cabelo do modelo
+  const flatIdx: number[] = [], flatW: THREE.Vector3[] = [];
   const noBeard = a.spec.model === 'Barbarian' && look.face !== 'beard';
   for (let i = 0; i < pos.count; i++) {
     t.fromBufferAttribute(pos, i); head.applyBoneTransform(i, t); t.applyMatrix4(head.matrixWorld);
     const px = Math.min(tex.w - 1, Math.floor(uv.getX(i) * tex.w)), py = Math.min(tex.h - 1, Math.floor(uv.getY(i) * tex.h));
     const k = (py * tex.w + px) * 4, r = tex.d[k], g = tex.d[k + 1], b = tex.d[k + 2];
     const skinTex = r >= 200 && g >= 150 && b >= 105 && r - b >= 45;
-    const skin = skinTex && !(a.spec.model === 'Knight' && t.y > E + 0.1 * u);       // cabelo loiro tem cor de pele: acima da testa conta como cabelo
+    const skin = skinTex && !((a.spec.model === 'Knight' || a.spec.model === 'Barbarian') && t.y > E + 0.1 * u);       // cabelo loiro tem cor de pele: acima da testa conta como cabelo
     const inEye = !skin && t.y > E - 0.075 * u && t.y < E + 0.05 * u && t.z > c.z && Math.abs(t.x - c.x) < 0.3 * u;
     const metal = b >= g && g >= r && r + g + b > 400;
     const cloth = b > r + 25;
@@ -369,10 +374,31 @@ function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3
     const brow = !inEye && t.z > c.z && t.y >= E + 0.05 * u && t.y < E + 0.1 * u && Math.abs(t.x - c.x) < 0.3 * u;
     // olhos desenhados no modelo somem (os olhos vêm do editor); cabelo do modelo só se escolhido
     const target = inEye ? skinAvg : beard ? (noBeard ? skinAvg : hairC) : brow ? hairC : (showOld ? hairC : skinAvg);
+    if (flat && !inEye && !beard && !brow) { flatIdx.push(i); flatW.push(t.clone()); }
     const orig = new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiply(base);
-    cols[i * 3] = Math.min(60, target.r / Math.max(0.02, orig.r));
-    cols[i * 3 + 1] = Math.min(60, target.g / Math.max(0.02, orig.g));
-    cols[i * 3 + 2] = Math.min(60, target.b / Math.max(0.02, orig.b));
+    cols[i * 3] = Math.min(500, target.r / Math.max(0.004, orig.r));
+    cols[i * 3 + 1] = Math.min(500, target.g / Math.max(0.004, orig.g));
+    cols[i * 3 + 2] = Math.min(500, target.b / Math.max(0.004, orig.b));
+  }
+  if (flatIdx.length) {
+    // elipsoide liso do crânio: vértices de cabelo que passam dele são puxados para dentro (escala em torno do centro, vale no espaço local)
+    const cw = new V3(), cl = new V3(), w = new V3(), l = new V3();
+    for (let i = 0; i < pos.count; i++) { l.fromBufferAttribute(pos, i); cl.add(l); w.copy(l); head.applyBoneTransform(i, w); w.applyMatrix4(head.matrixWorld); cw.add(w); }
+    cw.multiplyScalar(1 / pos.count); cl.multiplyScalar(1 / pos.count);
+    const hb = new THREE.Box3().setFromObject(head).getSize(new V3());
+    const sk = SKULL[a.spec.model] ?? SKULL.Knight, rx = sk.x * hb.x, ry = sk.y * hb.y, rz = sk.z * hb.z;
+    const key = (i: number) => `${Math.round(pos.getX(i) * 2e4)},${Math.round(pos.getY(i) * 2e4)},${Math.round(pos.getZ(i) * 2e4)}`;
+    const kmap = new Map<string, number>();
+    flatIdx.forEach((i, n) => {
+      const o = flatW[n].clone().sub(cw);
+      const m = Math.hypot(o.x / rx, o.y / ry, o.z / rz);
+      if (m > 1) { const k0 = key(i); kmap.set(k0, Math.min(kmap.get(k0) ?? 1, 1 / m)); }
+    });
+    for (let i = 0; i < pos.count; i++) {      // vértices duplicados (costuras de UV) andam juntos, senão abrem rachaduras
+      const kk = kmap.get(key(i)); if (kk === undefined) continue;
+      l.fromBufferAttribute(pos, i); l.sub(cl).multiplyScalar(kk).add(cl); pos.setXYZ(i, l.x, l.y, l.z);
+    }
+    pos.needsUpdate = true; geo.computeBoundingSphere(); geo.computeBoundingBox();
   }
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   m.vertexColors = true; m.needsUpdate = true;
