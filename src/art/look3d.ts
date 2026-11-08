@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import type { SkinnedActor } from './actors';
 import { Look, OUTFIT_TINT } from '../data/looks';
+import { cloneModel } from './models';
 
 const V3 = THREE.Vector3;
 const SKULL: Record<string, { x: number; y: number; z: number }> = {
@@ -56,6 +57,45 @@ class Surface {
   }
 }
 
+/** Cabelo comprido do Ladino (malha real do modelo), extraído uma vez para ser usado nas outras cabeças. */
+interface HairMesh { pos: Float32Array; col: Float32Array; ids: number[]; c: THREE.Vector3; E: number; sz: THREE.Vector3 }
+let rogueHairCache: HairMesh | null = null;
+function rogueHair(): HairMesh | null {
+  if (rogueHairCache) return rogueHairCache;
+  const m = cloneModel('Rogue'); m.updateMatrixWorld(true);
+  let head: THREE.SkinnedMesh | null = null;
+  m.traverse((o) => { if (/_Head$/.test(o.name) && (o as THREE.SkinnedMesh).isSkinnedMesh) head = o as THREE.SkinnedMesh; });
+  if (!head) return null;
+  const h = head as THREE.SkinnedMesh; h.skeleton.update();
+  const mm = h.material as THREE.MeshStandardMaterial, img = mm.map?.image as (CanvasImageSource & { width: number; height: number }) | undefined;
+  if (!img) return null;
+  const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+  const g = cv.getContext('2d')!; g.drawImage(img, 0, 0);
+  const td = g.getImageData(0, 0, cv.width, cv.height).data;
+  const box = new THREE.Box3().setFromObject(h), c = box.getCenter(new V3()), sz = box.getSize(new V3());
+  const E = c.y + EYES.Rogue.ey * sz.y, u = sz.y;
+  const pos = h.geometry.attributes.position, uv = h.geometry.attributes.uv, n = pos.count;
+  const wp = new Float32Array(n * 3), col = new Float32Array(n * 3), ok = new Uint8Array(n), t = new V3();
+  const avg = [0, 0, 0]; let na = 0;
+  for (let i = 0; i < n; i++) {
+    t.fromBufferAttribute(pos, i); h.applyBoneTransform(i, t); t.applyMatrix4(h.matrixWorld);
+    wp[i * 3] = t.x; wp[i * 3 + 1] = t.y; wp[i * 3 + 2] = t.z;
+    const px = Math.min(cv.width - 1, Math.floor(uv.getX(i) * cv.width)), py = Math.min(cv.height - 1, Math.floor(uv.getY(i) * cv.height));
+    const k = (py * cv.width + px) * 4, r = td[k], gg = td[k + 1], b = td[k + 2];
+    const skin = r >= 200 && gg >= 150 && b >= 105 && r - b >= 45, metal = b >= gg && gg >= r && r + gg + b > 400, cloth = b > r + 25, dark = r < 50 && gg < 50 && b < 60;
+    const face = t.z > c.z && t.y < E + 0.1 * u && Math.abs(t.x - c.x) < 0.3 * u;       // olhos e sobrancelhas
+    ok[i] = skin || metal || cloth || dark || face ? 0 : 1;
+    col[i * 3] = r / 255; col[i * 3 + 1] = gg / 255; col[i * 3 + 2] = b / 255;
+    if (ok[i]) { avg[0] += r / 255; avg[1] += gg / 255; avg[2] += b / 255; na++; }
+  }
+  if (!na) return null;
+  for (let j = 0; j < 3; j++) avg[j] /= na;
+  for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) col[i * 3 + j] = col[i * 3 + j] / Math.max(0.05, avg[j]);   // 1 = cor média do cabelo
+  const idx = h.geometry.index!.array, ids: number[] = [];
+  for (let i = 0; i < idx.length; i += 3) if (ok[idx[i]] && ok[idx[i + 1]] && ok[idx[i + 2]]) ids.push(idx[i], idx[i + 1], idx[i + 2]);
+  return (rogueHairCache = { pos: wp, col, ids, c, E, sz });
+}
+
 export function applyLook(a: SkinnedActor, look: Look, tone: string) {
   // --- roupa: tinge corpo, braços, pernas e capa ---
   const tint = OUTFIT_TINT[look.outfit];
@@ -83,7 +123,7 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
   const EX = eye.ex * sz.x;                         // afastamento dos olhos
   const native = a.spec.model === 'Rogue' ? 'f' : 'm';
   const swap = (look.gender ?? native) !== native;
-  const style = !swap ? 'none' : native === 'f' ? 'short' : 'long';   // modelo feminino → cabelo masculino curto; masculino → cabelo feminino longo
+  const style = !swap ? 'none' : native === 'f' ? 'wavy' : 'rogue';   // modelo feminino → cabelo masculino (ondulado, médio); masculino → o cabelo comprido do Ladino
   const eyeC = new THREE.Color(look.eyeColor);
   const hairC = new THREE.Color(look.hairColor), skinC = new THREE.Color(tone);
 
@@ -168,17 +208,40 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
   if (!hatShown && !['hood', 'helm', 'horns'].includes(look.head)) {
     const T = 0.032;                                 // espessura do cabelo
     /** cortina de cabelo que contorna a nuca e as laterais (abre à frente, onde fica o rosto) */
-    const curtain = (yTop: number, h: number, span: number, pad = 0.05) => {
+    const curtain = (yTop: number, h: number, span: number, pad = 0.05, wave = false) => {
       const r = ring(E + yTop * u);
-      const g = new THREE.CylinderGeometry(1, 1.14, 1, 28, 1, true, Math.PI - span / 2, span);
+      const g = new THREE.CylinderGeometry(1, 1.14, 1, wave ? 48 : 28, wave ? 6 : 1, true, Math.PI - span / 2, span);
+      if (wave) { const ps = g.attributes.position; for (let i = 0; i < ps.count; i++) { const x = ps.getX(i), z = ps.getZ(i), y = ps.getY(i), f = 1 + 0.07 * Math.sin(Math.atan2(x, z) * 9 + y * 11); ps.setXYZ(i, x * f, y, z * f); } g.computeVertexNormals(); }
       add(g, hairM, new V3(r.cx, E + (yTop - h / 2) * u, r.cz - 0.02 * u), undefined, [r.rx + pad * u, h * u, r.rz + pad * u]);
     };
     const hatTop = look.head === 'witch' || look.head === 'feather';      // chapéus de aba: só o cabelo que sai por baixo
     const sh = (...args: Parameters<typeof shell>) => { if (!hatTop) shell(...args); };
-    switch (hatTop && style === 'short' ? 'none' : style) {
+    switch (hatTop ? 'none' : style) {
       case 'none': break;
-      case 'short': shell(hairM, T, 0.15, 0.04, -0.2); break;
-      case 'long': sh(hairM, T, 0.15, -0.1, -0.4); curtain(0.0, 0.62, 3.6); break;
+      case 'rogue': {                                  // malha do cabelo do Ladino, ajustada a esta cabeça
+        const R = rogueHair();
+        if (!R) { sh(hairM, T, 0.15, -0.1, -0.4); curtain(0.0, 0.62, 3.6); break; }
+        const k = (u / R.sz.y) * 1.04, rel = (a: number, b: number) => Math.min(1.25, Math.max(0.9, a / b / (u / R.sz.y)));
+        const kx = k * rel(sz.x, R.sz.x), kz = k * rel(sz.z, R.sz.z);
+        const pos = new Float32Array(R.pos.length);
+        for (let i = 0; i < R.pos.length; i += 3) {
+          pos[i] = c.x + (R.pos[i] - R.c.x) * kx; pos[i + 1] = E + (R.pos[i + 1] - R.E) * k; pos[i + 2] = c.z + (R.pos[i + 2] - R.c.z) * kz;
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(R.col, 3));
+        g.setIndex(R.ids); g.computeVertexNormals();
+        add(g, new THREE.MeshStandardMaterial({ color: hairC, vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }), new V3());
+        break;
+      }
+      case 'wavy': {                                   // cabelo médio ondulado, jogado para trás, com mechas caindo dos lados
+        shell(hairM, 0.05, 0.22, -0.02, -0.3);
+        curtain(0.04, 0.3, 4.3, 0.07, true);
+        for (const sd of [-1, 1]) for (const [dx, dy, ln] of [[0.22, 0.2, 0.07], [0.3, 0.12, 0.09], [0.34, 0.03, 0.1]]) {
+          const f = front(c.x + sd * dx * u, E + dy * u);
+          add(sph(8), hairM, out(f, 0.012), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, sd * 0.35)), [0.05 * u, ln * u, 0.035 * u]);
+        }
+        break;
+      }
     }
   }
 
