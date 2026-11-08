@@ -432,8 +432,11 @@ function drawCityLayer(g: CanvasRenderingContext2D, v: View, tiles: number[][]) 
   g.save(); g.strokeStyle = INK; g.lineWidth = 1.4; g.fillStyle = '#b9b8c2'; g.beginPath(); g.arc(fx, fy, S * 1.9, 0, Math.PI * 2); g.fill(); g.stroke();
   g.fillStyle = '#7fb4d6'; g.beginPath(); g.arc(fx, fy, S * 1.4, 0, Math.PI * 2); g.fill(); g.stroke();
   g.fillStyle = '#d6ecff'; g.beginPath(); g.arc(fx, fy, S * 0.45, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.strokeStyle = 'rgba(214,160,40,0.9)'; g.lineWidth = 1.6; g.beginPath(); g.arc(fx, fy, S * 2.5, 0, Math.PI * 2); g.stroke(); // anel rúnico
+  g.lineWidth = 1; g.strokeStyle = INK; g.fillStyle = '#ffd870';
+  for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + Math.PI / 4; g.beginPath(); g.arc(fx + Math.cos(a) * S * 1.65, fy + Math.sin(a) * S * 1.65, S * 0.25, 0, Math.PI * 2); g.fill(); g.stroke(); }
   g.restore();
-  halo(g, 'Praça da Fonte', fx, fy + S * 2.9, 13, { italic: true, bold: true, halo: 4 });
+  halo(g, 'Fonte de Teleporte', fx, fy + S * 2.9, 13, { italic: true, bold: true, halo: 4 });
   // bancos e canteiros da praça
   for (const [dx, dz] of [[-3.9, -3.0], [3.9, -3.0], [-3.9, 3.2], [3.9, 3.2], [-6.2, 0.1], [6.2, 0.1]]) { g.fillStyle = '#8a5a2e'; g.strokeStyle = INK; g.lineWidth = 0.8; g.fillRect(fx + dx * S - 5, fy + dz * S - 2, 10, 4); g.strokeRect(fx + dx * S - 5, fy + dz * S - 2, 10, 4); }
   for (const [dx, dz] of [[-2.6, -5.6], [2.6, -5.6], [-3.0, 6.0], [3.0, 6.0], [-7.4, -1.8], [7.4, -1.8], [-7.4, 2.0], [7.4, 2.0]]) {

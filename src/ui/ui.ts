@@ -707,9 +707,8 @@ function renderFountain() {
 const MAP_PRICE: Record<string, number> = { fields: 60, forest: 150, crypt: 300, orcs: 500, ogre: 750, swamp: 1000, desert: 1400 };
 const MAP_ALL = 3200;
 const regionOf = (z: string) => (z === 'town' ? 'fields' : ZONES[z]?.biome ?? z);
-function mapShopHtml(): string {
-  const pos = mapSource?.pos();
-  const inTown = !!pos && !!ZONES[zoneAt(Math.floor(pos.x / 16), Math.floor(pos.y / 16))]?.safe;
+function mapShopHtml(inn = false): string {
+  const inTown = inn;
   const rows: string[] = [];
   for (const [id, price] of Object.entries(MAP_PRICE)) {
     let all = true;
@@ -719,7 +718,7 @@ function mapShopHtml(): string {
   }
   if (!rows.length) return `<div style="margin-top:6px;color:#7ee787">🗺️ Você já conhece todo o reino.</div>`;
   rows.push(`<button class="mbuy" data-r="all" ${!inTown || player.gold < MAP_ALL ? 'disabled' : ''} style="padding:3px 10px;margin:2px;border-color:var(--gold);color:var(--gold)">🗺️ Mapa completo do reino · ${MAP_ALL} 🪙</button>`);
-  return `<div style="margin-top:8px;padding-top:6px;border-top:1px solid #3a3358"><b style="color:var(--gold)">🧭 Cartógrafo</b> <span style="color:#a79cc4">— compre o mapa de uma região para revelá-la (você também pode descobri-la andando).${inTown ? '' : ' <i>Só é possível comprar dentro de uma cidade ou vila.</i>'}</span><div style="margin-top:4px">${rows.join('')}</div></div>`;
+  return `<div class="qrow"><b style="color:var(--gold)">🧭 Mapas do reino</b> <span style="color:#a79cc4">— compre o mapa de uma região para revelá-la (você também pode descobri-la andando).</span><div style="margin-top:4px">${rows.join('')}</div></div>`;
 }
 function buyMap(r: string) {
   const price = r === 'all' ? MAP_ALL : MAP_PRICE[r];
@@ -995,12 +994,13 @@ const RUMORS = [
 let rumorN = 0;
 function npcInnkeeper() {
   const w = setWin(`<h3>Taverneiro Bram — 🪙 ${player.gold}${closeBtn}</h3>
-    <div style="font-size:13px;margin-bottom:8px">“Bem-vindo ao Dragão Dourado! Sente-se, aventureiro. A casa tem cama quente, ensopado e boas histórias.”</div>
+    <div style="font-size:13px;margin-bottom:8px">“Bem-vindo! Sente-se, aventureiro. A casa tem cama quente, ensopado, boas histórias — e mapas da região para quem paga.”</div>
     <div class="qrow"><b>🛏️ Quarto simples</b> — restaura PV e energia<div class="row"><button data-t="rest" class="primary">Descansar 🪙 25</button></div></div>
     <div class="qrow"><b>🍺 Hidromel do Aventureiro</b> — +2 de dano por 5 minutos<div class="row"><button data-t="mead">Beber 🪙 60</button></div></div>
     <div class="qrow"><b>🍲 Ensopado do Viajante</b> — +1 CA e regeneração por 5 minutos<div class="row"><button data-t="stew">Comer 🪙 60</button></div></div>
-    <div class="qrow"><b>🗣️ Ouvir rumores</b><div class="row"><button data-t="rumor">Pagar uma rodada 🪙 5</button></div><div id="rumor" style="margin-top:6px;color:#cfc8e8;font-size:13px"></div></div>`);
+    <div class="qrow"><b>🗣️ Ouvir rumores</b><div class="row"><button data-t="rumor">Pagar uma rodada 🪙 5</button></div><div id="rumor" style="margin-top:6px;color:#cfc8e8;font-size:13px"></div></div>${mapShopHtml(true)}`);
   bindClose(w);
+  w.onclick = (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('.mbuy'); if (b && !(b as HTMLButtonElement).disabled) { buyMap(b.dataset.r!); npcInnkeeper(); } };
   const pay = (n: number) => { if (player.gold < n) { onLog('Ouro insuficiente.', '#ff8a8a'); return false; } player.gold -= n; return true; };
   w.querySelectorAll<HTMLElement>('[data-t]').forEach((b) => (b.onclick = () => {
     const d = derive(player), t = b.dataset.t;
@@ -1122,7 +1122,7 @@ function renderMap() {
     if (!force && key === lastKey) return;
     lastKey = key;
     drawMap(mapTab, cv);
-    q('#maplg').innerHTML = mapLegend(mapTab) + (mapTab === 'global' ? mapShopHtml() : '');
+    q('#maplg').innerHTML = mapLegend(mapTab) + (mapTab === 'global' ? '<div style="margin-top:6px;color:#a79cc4">🧭 Mapas das regiões são vendidos nas <b>tavernas</b> das cidades e vilas.</div>' : '');
   };
   qa<HTMLElement>('.mt', w).forEach((b) => (b.onclick = () => { mapTab = b.dataset.k as MapKind; renderMap(); }));
   q('#maplg').onclick = (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>('.mbuy'); if (b && !(b as HTMLButtonElement).disabled) { buyMap(b.dataset.r!); paint(true); } };
