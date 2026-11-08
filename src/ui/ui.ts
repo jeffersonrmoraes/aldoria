@@ -12,7 +12,7 @@ import { CURRENT_CHAPTER } from '../chapters';
 import { DUNGEONS, EPILOGUE, FRAGMENTS, FRAGMENT_BY_ID, MAIN_QUESTS, SAGE_INTRO } from '../chapters/story1';
 import { frameIcon, itemFrameName } from '../art/art';
 import { portrait } from '../art/portrait';
-import { EYE_COLORS, EYE_SHAPES, FACES, HAIR_COLORS, HAIR_STYLES, HEADGEARS, OLD_HAIRS, Look, OUTFITS, Opt, defaultLook, heightScale, randomLook } from '../data/looks';
+import { EYE_COLORS, FACES, GENDERS, HAIR_COLORS, HEADGEARS, Look, nativeGender, OUTFITS, Opt, defaultLook, heightScale, randomLook } from '../data/looks';
 import { bus } from '../game/bus';
 import { attrTree, attrPointsLeft, attrPointsTotal, buyNode, nodeState, respecCost, skillPointsLeft, skillPointsTotal, skillTree, Tree } from '../data/progression';
 import { ENCHANTS, ROMAN, enchantCost, enchLine } from '../data/enchants';
@@ -110,9 +110,9 @@ export function showMenu(start: () => void) {
   }));
 }
 
-type CTab = 'race' | 'class' | 'hair' | 'oldhair' | 'eyes' | 'outfit' | 'head' | 'face' | 'height' | 'skin';
+type CTab = 'race' | 'class' | 'hair' | 'eyes' | 'outfit' | 'head' | 'face' | 'height' | 'skin';
 const CTABS: { id: CTab; icon: string; name: string }[] = [
-  { id: 'race', icon: '🧝', name: 'Raça' }, { id: 'class', icon: '⚔️', name: 'Classe' }, { id: 'hair', icon: '💇', name: 'Cabelo' }, { id: 'oldhair', icon: '🧑', name: 'Cabelo Original' },
+  { id: 'race', icon: '🧝', name: 'Raça' }, { id: 'class', icon: '⚔️', name: 'Classe' }, { id: 'hair', icon: '💇', name: 'Gênero e Cabelo' },
   { id: 'eyes', icon: '👁️', name: 'Olhos' }, { id: 'outfit', icon: '👕', name: 'Roupa' }, { id: 'head', icon: '🎩', name: 'Cabeça' },
   { id: 'face', icon: '🧔', name: 'Rosto' }, { id: 'height', icon: '📏', name: 'Altura' }, { id: 'skin', icon: '🎨', name: 'Pele' },
 ];
@@ -147,9 +147,11 @@ function showCreate(start: () => void, slot: number) {
         <div class="desc"><b style="color:#ffe9a8">${cls.name}</b> — ${cls.desc}<br>Dado de vida d${cls.hit} · Atributo principal: ${ABILITY_NAMES[cls.primary]} · Armadura: ${ARMOR_NAMES[cls.armor]}</div>
         <div class="stats">${ABILITIES.map((a) => `<div>${ABILITY_SHORT[a]} <b>${d.ab[a]}</b> (${d.md[a] >= 0 ? '+' : ''}${d.md[a]})</div>`).join('')}</div>
         <div class="desc">PV ${d.maxHp} · CA ${d.ac} · Energia ${d.maxEn}<br>${cls.skills.map((s) => `${s.icon} <b>${s.name}</b> (nv ${s.unlock})`).join(' · ')}</div>`;
-      case 'hair': return `<h4>Estilo do cabelo</h4>${optGrid('hair', HAIR_STYLES, () => ({ head: st.look.head === 'default' ? 'none' : st.look.head }))}<h4>Cor do cabelo</h4>${swatches('hairColor', HAIR_COLORS)}${st.look.head === 'default' && !['rogue', 'bard', 'ranger', 'bladesinger'].includes(cls.id) ? '<div class="desc">O chapéu/elmo da classe cobre o cabelo — escolha outro adereço na aba Cabeça para ver o penteado.</div>' : ''}`;
-      case 'oldhair': return `<h4>Cabelo original da classe</h4>${optGrid('oldHair', OLD_HAIRS, (o) => (o.id === 'model' && st.look.head === 'default' ? { head: 'none' } : {}))}<h4>Cor do cabelo</h4>${swatches('hairColor', HAIR_COLORS)}<div class="desc">O cabelo desenhado no modelo de cada classe. Pode ser usado junto com um estilo da aba Cabelo.</div>`;
-      case 'eyes': return `<h4>Formato dos olhos</h4>${optGrid('eyes', EYE_SHAPES)}<h4>Cor dos olhos</h4>${swatches('eyeColor', EYE_COLORS)}`;
+      case 'hair': {
+        const eff = st.look.gender ?? nativeGender(st.cls), nat = nativeGender(st.cls);
+        return `<h4>Gênero</h4><div class="ogrid">${GENDERS.map((o) => `<div class="opt ${eff === o.id ? 'sel' : ''}" data-k="gender" data-v="${o.id}"><img src="${thumb({ gender: o.id, ...(o.id !== nat && st.look.head === 'default' ? { head: 'none' } : {}) } as Partial<Look>)}"><span>${o.name}</span></div>`).join('')}</div><h4>Cor do cabelo</h4>${swatches('hairColor', HAIR_COLORS)}<div class="desc">Cada classe tem o seu cabelo; no outro gênero o personagem ganha um cabelo ${nat === 'f' ? 'masculino curto' : 'feminino longo'}. O chapéu/elmo da classe cobre o cabelo — troque o adereço na aba Cabeça para vê-lo.</div>`;
+      }
+      case 'eyes': return `<h4>Cor dos olhos</h4>${swatches('eyeColor', EYE_COLORS)}`;
       case 'outfit': return `<h4>Cor da roupa</h4>${optGrid('outfit', OUTFITS, () => ({}), 'full')}`;
       case 'head': return `<h4>Adereço de cabeça</h4>${optGrid('head', HEADGEARS)}`;
       case 'face': return `<h4>Rosto</h4>${optGrid('face', FACES)}<div class="desc">Barba, bigode e cavanhaque usam a cor do cabelo.</div>`;
@@ -192,9 +194,9 @@ function showCreate(start: () => void, slot: number) {
     q('#rr', screen).onclick = () => { st.rot += 0.6; drawPreview(); };
     screen.querySelectorAll<HTMLElement>('[data-t]').forEach((e) => (e.onclick = () => { st.tab = e.dataset.t as CTab; render(); }));
     screen.querySelectorAll<HTMLElement>('[data-r]').forEach((e) => (e.onclick = () => { st.race = e.dataset.r!; render(); }));
-    screen.querySelectorAll<HTMLElement>('[data-c]').forEach((e) => (e.onclick = () => { st.cls = e.dataset.c!; render(); }));
+    screen.querySelectorAll<HTMLElement>('[data-c]').forEach((e) => (e.onclick = () => { st.cls = e.dataset.c!; delete st.look.gender; render(); }));
     screen.querySelectorAll<HTMLElement>('[data-h]').forEach((e) => (e.onclick = () => { st.tone = e.dataset.h!; render(); }));
-    screen.querySelectorAll<HTMLElement>('[data-k]').forEach((e) => (e.onclick = () => { (st.look as unknown as Record<string, string>)[e.dataset.k!] = e.dataset.v!; const k = e.dataset.k; if (k === 'hair' && st.look.head === 'default') st.look.head = 'none'; if (k === 'oldHair' && e.dataset.v === 'model' && st.look.head === 'default') st.look.head = 'none'; render(); }));
+    screen.querySelectorAll<HTMLElement>('[data-k]').forEach((e) => (e.onclick = () => { (st.look as unknown as Record<string, string>)[e.dataset.k!] = e.dataset.v!; const k = e.dataset.k!; (st.look as unknown as Record<string, string>)[k] = e.dataset.v!; if (k === 'gender' && e.dataset.v !== nativeGender(st.cls) && st.look.head === 'default') st.look.head = 'none'; render(); }));
     const hg = screen.querySelector<HTMLInputElement>('#hgt');
     if (hg) { hg.oninput = () => { st.look.height = Number(hg.value) / 100; drawPreview(); }; hg.onchange = () => render(); }
     drawPreview();

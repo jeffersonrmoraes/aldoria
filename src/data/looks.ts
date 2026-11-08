@@ -5,27 +5,19 @@
 export interface Opt { id: string; name: string }
 
 export interface Look {
-  hair: string;       // estilo do cabelo
-  oldHair: string;    // 'none' | 'model' — cabelo original desenhado no modelo da classe
-  hairColor: string;  // cor (hex)
-  eyes: string;       // formato dos olhos
-  eyeColor: string;   // cor da íris (hex)
+  gender?: string;    // 'm' | 'f' — ausente = o do modelo da classe (cabelo original); o outro gênero ganha um cabelo desenhado
+  hairColor: string;  // cor do cabelo (hex)
+  eyeColor: string;   // cor dos olhos (hex)
   height: number;     // 0 = baixo … 1 = alto (escala 0,90–1,10)
   outfit: string;     // paleta da roupa
   head: string;       // adereço de cabeça
   face: string;       // pelos/marcas no rosto
 }
 
-export const HAIR_STYLES: Opt[] = [
-  { id: 'none', name: 'Careca' }, { id: 'short', name: 'Curto' }, { id: 'spiky', name: 'Espetado' }, { id: 'long', name: 'Longo' },
-  { id: 'pony', name: 'Rabo de Cavalo' }, { id: 'bun', name: 'Coque' }, { id: 'mohawk', name: 'Moicano' }, { id: 'afro', name: 'Volumoso' },
-  { id: 'bob', name: 'Chanel' }, { id: 'braids', name: 'Tranças' },
-];
-export const OLD_HAIRS: Opt[] = [{ id: 'none', name: 'Nenhum' }, { id: 'model', name: 'Original da Classe' }];
+export const GENDERS: Opt[] = [{ id: 'm', name: 'Masculino' }, { id: 'f', name: 'Feminino' }];
+/** Gênero do cabelo original do modelo de cada classe (Ladino/Bardo/Patrulheiro/Dançarino usam o modelo de cabelo longo). */
+export const nativeGender = (classId: string) => (['rogue', 'bard', 'ranger', 'bladesinger'].includes(classId) ? 'f' : 'm');
 export const HAIR_COLORS = ['#2a1a10', '#5a3a1e', '#8a5a2a', '#c9a24a', '#f0dca0', '#d8602a', '#a02a2a', '#d0d0d8', '#3a4a8a', '#3a8a5a', '#8a3aa0', '#e060a0'];
-export const EYE_SHAPES: Opt[] = [
-  { id: 'round', name: 'Redondos' }, { id: 'big', name: 'Grandes' }, { id: 'narrow', name: 'Estreitos' }, { id: 'slit', name: 'Felinos' },
-];
 export const EYE_COLORS = ['#3a2a1a', '#7a4a22', '#2a6ad0', '#2a9a5a', '#7a8a3a', '#8a8a95', '#a02a2a', '#8a3aa0', '#e0b020', '#30c8d8'];
 export const OUTFITS: Opt[] = [
   { id: 'default', name: 'Original' }, { id: 'crimson', name: 'Carmesim' }, { id: 'azure', name: 'Azul-real' }, { id: 'forest', name: 'Verde-floresta' },
@@ -49,7 +41,7 @@ export const HEIGHT_MIN = 0.9, HEIGHT_MAX = 1.1;
 export const heightScale = (h: number) => HEIGHT_MIN + Math.min(1, Math.max(0, h)) * (HEIGHT_MAX - HEIGHT_MIN);
 
 export const defaultLook = (): Look => ({
-  hair: 'short', oldHair: 'none', hairColor: HAIR_COLORS[1], eyes: 'round', eyeColor: EYE_COLORS[1], height: 0.5, outfit: 'default', head: 'default', face: 'none',
+  hairColor: HAIR_COLORS[1], eyeColor: EYE_COLORS[0], height: 0.5, outfit: 'default', head: 'default', face: 'none',
 });
 
 const pick = (v: unknown, list: Opt[], d: string) => (typeof v === 'string' && list.some((o) => o.id === v) ? v : d);
@@ -62,8 +54,8 @@ export function sanitizeLook(raw: unknown): Look {
   const r = raw as Record<string, unknown>;
   const h = Number(r.height);
   return {
-    hair: pick(r.hair, HAIR_STYLES, d.hair), oldHair: pick(r.oldHair, OLD_HAIRS, d.oldHair), hairColor: color(r.hairColor, d.hairColor),
-    eyes: pick(r.eyes, EYE_SHAPES, d.eyes), eyeColor: color(r.eyeColor, d.eyeColor),
+    ...(r.gender === 'm' || r.gender === 'f' ? { gender: r.gender } : {}), hairColor: color(r.hairColor, d.hairColor),
+    eyeColor: color(r.eyeColor, d.eyeColor),
     height: Number.isFinite(h) ? Math.min(1, Math.max(0, h)) : d.height,
     outfit: pick(r.outfit, OUTFITS, d.outfit), head: pick(r.head, HEADGEARS, d.head), face: pick(r.face, FACES, d.face),
   };
@@ -73,7 +65,7 @@ export function sanitizeLook(raw: unknown): Look {
 export function randomLook(rnd: () => number = Math.random): Look {
   const p = <T,>(a: T[]) => a[Math.floor(rnd() * a.length)];
   return {
-    hair: p(HAIR_STYLES).id, oldHair: 'none', hairColor: p(HAIR_COLORS), eyes: p(EYE_SHAPES).id, eyeColor: p(EYE_COLORS), height: rnd(),
+    gender: rnd() < 0.5 ? 'm' : 'f', hairColor: p(HAIR_COLORS), eyeColor: p(EYE_COLORS), height: rnd(),
     outfit: p(OUTFITS).id, head: rnd() < 0.5 ? 'default' : p(HEADGEARS).id, face: rnd() < 0.5 ? 'none' : p(FACES).id,
   };
 }

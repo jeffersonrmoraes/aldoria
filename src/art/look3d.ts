@@ -75,17 +75,22 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
   });
 
   a.model.updateMatrixWorld(true);
-  const S = new Surface(head);
   const box = new THREE.Box3().setFromObject(head);
   const c = box.getCenter(new V3()), sz = box.getSize(new V3());
   const u = sz.y;                                   // unidade: altura da cabeça
   const eye = EYES[a.spec.model] ?? EYES.Knight;
   const E = c.y + eye.ey * sz.y;                    // altura dos olhos
   const EX = eye.ex * sz.x;                         // afastamento dos olhos
+  const native = a.spec.model === 'Rogue' ? 'f' : 'm';
+  const swap = (look.gender ?? native) !== native;
+  const style = !swap ? 'none' : native === 'f' ? 'short' : 'long';   // modelo feminino → cabelo masculino curto; masculino → cabelo feminino longo
+  const eyeC = new THREE.Color(look.eyeColor);
   const hairC = new THREE.Color(look.hairColor), skinC = new THREE.Color(tone);
 
   // --- cor do cabelo desenhado no modelo (cabelo, sobrancelhas, barba): vira a cor escolhida ---
-  recolorBaked(a, head, c, E, u, look, hairC, skinC);
+  recolorBaked(a, head, c, E, u, look, hairC, skinC, eyeC, swap, EX);
+  a.model.updateMatrixWorld(true);
+  const S = new Surface(head);                      // superfície já alisada (cabelo do modelo removido)
 
   const root = new THREE.Group();                   // peças em coordenadas do mundo (pose atual), presas ao osso
   root.name = 'look';
@@ -159,7 +164,7 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
   const boxg = () => new THREE.BoxGeometry(1, 1, 1);
   const cylg = (n = 16) => new THREE.CylinderGeometry(1, 1, 1, n);
 
-  // --- cabelo ---
+  // --- cabelo desenhado: só para o gênero oposto ao do cabelo original do modelo ---
   if (!hatShown && !['hood', 'helm', 'horns'].includes(look.head)) {
     const T = 0.032;                                 // espessura do cabelo
     /** cortina de cabelo que contorna a nuca e as laterais (abre à frente, onde fica o rosto) */
@@ -170,53 +175,10 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
     };
     const hatTop = look.head === 'witch' || look.head === 'feather';      // chapéus de aba: só o cabelo que sai por baixo
     const sh = (...args: Parameters<typeof shell>) => { if (!hatTop) shell(...args); };
-    switch (hatTop && ['spiky', 'bun', 'mohawk', 'afro', 'short', 'none'].includes(look.hair) ? 'none' : look.hair) {
+    switch (hatTop && style === 'short' ? 'none' : style) {
       case 'none': break;
-      case 'short': shell(hairM, T, 0.17, 0.04, -0.2); break;
-      case 'spiky': {
-        shell(hairM, T, 0.17, 0.05, -0.15);
-        const spike = (th: number, ph: number, len = 0.32) => { const q = pt(th, ph, T * 0.5); add(cone(5), hairM, q.p.clone().addScaledVector(q.d, len * u * 0.45), qTo(q.d), [0.1 * u, len * u, 0.1 * u]); };
-        spike(0.05, 0, 0.4);
-        for (let i = 0; i < 7; i++) spike(0.6, (i / 7) * Math.PI * 2 + 0.2, 0.3);
-        for (let i = 0; i < 5; i++) spike(1.0, (i / 5) * Math.PI * 2 + 0.6, 0.26);
-        break;
-      }
-      case 'long': sh(hairM, T, 0.17, -0.1, -0.4); curtain(0.0, 0.62, 3.6); break;
-      case 'bob': sh(hairM, T, 0.17, -0.12, -0.14); curtain(0.0, 0.3, 3.4, 0.04); break;
-      case 'pony': {
-        sh(hairM, T, 0.17, 0.04, -0.2);
-        const q = pt(1.95, Math.PI, 0.02);
-        add(sph(), hairM, q.p.clone().addScaledVector(q.d, 0.06 * u), undefined, [0.1 * u, 0.1 * u, 0.1 * u]);
-        add(cone(6), hairM, q.p.clone().add(new V3(0, -0.2 * u, -0.09 * u)), new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI - 0.25, 0, 0)), [0.1 * u, 0.4 * u, 0.1 * u]);
-        break;
-      }
-      case 'bun': {
-        shell(hairM, T, 0.17, 0.04, -0.2);
-        const q = pt(0.35, Math.PI, 0.08);
-        add(sph(), hairM, q.p.clone().addScaledVector(q.d, 0.07 * u), undefined, [0.16 * u, 0.16 * u, 0.16 * u]);
-        break;
-      }
-      case 'mohawk': {
-        const crest: [number, number][] = [[1.0, 0], [0.7, 0], [0.4, 0], [0.12, 0], [0.3, Math.PI], [0.6, Math.PI], [0.9, Math.PI], [1.2, Math.PI], [1.45, Math.PI]];
-        for (const [th, ph] of crest) { const q = pt(th, ph, 0.01); add(boxg(), hairM, q.p.clone().addScaledVector(q.d, 0.09 * u), qTo(q.d), [0.07 * u, 0.2 * u, 0.13 * u]); }
-        break;
-      }
-      case 'afro': {
-        shell(hairM, T, 0.2, 0.05, -0.2);
-        const puff = (th: number, ph: number, r: number) => { const q = pt(th, ph, r * 0.8); add(sph(12), hairM, q.p, undefined, [r * u, r * u, r * u]); };
-        puff(0.05, 0, 0.3);
-        for (let i = 0; i < 8; i++) puff(0.65, (i / 8) * Math.PI * 2 + 0.2, 0.26);
-        for (let i = 0; i < 9; i++) { const ph = (i / 9) * Math.PI * 2 + 0.1; if (Math.cos(ph) > 0.45) continue; puff(1.2, ph, 0.22); }
-        break;
-      }
-      case 'braids': {
-        sh(hairM, T, 0.17, 0.04, -0.2);
-        for (const s of [-1, 1]) for (let i = 0; i < 5; i++) {
-          const r = ring(E - 0.02 * u - i * 0.1 * u);
-          add(sph(8), hairM, new V3(r.cx + s * (r.rx + 0.03 * u), E - 0.05 * u - i * 0.095 * u, r.cz - 0.12 * u - i * 0.01 * u), undefined, [0.065 * u, 0.075 * u, 0.065 * u]);
-        }
-        break;
-      }
+      case 'short': shell(hairM, T, 0.15, 0.04, -0.2); break;
+      case 'long': sh(hairM, T, 0.15, -0.1, -0.4); curtain(0.0, 0.62, 3.6); break;
     }
   }
 
@@ -276,20 +238,6 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
     }
   }
 
-  // --- olhos: íris colorida colada sobre os olhos do modelo ---
-  const shape = { round: [1, 1], big: [1.28, 1.32], narrow: [1.25, 0.62], slit: [0.8, 1.15] }[look.eyes] ?? [1, 1];
-  const scleraM = mat('#f4f0e8'), irisM = mat(look.eyeColor), pupM = mat('#0a0a0a'), glintM = mat('#ffffff', 0.6);
-  for (const s of [-1, 1]) {
-    const f = front(c.x + s * EX, E);
-    const w = 0.052 * u * shape[0], h = 0.066 * u * shape[1];
-    add(sph(14), skinM, out(f, 0.0015), f.q, [0.068 * u, 0.084 * u, 0.008 * u]);   // cobre o olho desenhado no modelo
-    add(sph(14), scleraM, out(f, 0.002), f.q, [w * 1.7, h * 1.3, 0.01 * u]);
-    const iris = add(sph(14), irisM, out(f, 0.004), f.q, [w, h, 0.012 * u]);
-    iris.quaternion.copy(f.q);
-    add(sph(10), pupM, out(f, 0.008), f.q, [look.eyes === 'slit' ? w * 0.18 : w * 0.5, h * 0.62, 0.012 * u]);
-    add(sph(6), glintM, out(f, 0.011).add(new V3(w * 0.3, h * 0.35, 0)), f.q, [w * 0.22, w * 0.22, 0.008 * u]);
-  }
-
   // --- rosto ---
   const ink = mat('#1a1410');
   const ex = EX;
@@ -333,7 +281,7 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
 
 /** Troca a cor do cabelo/sobrancelhas/barba desenhados na textura da cabeça (por cor de vértice). */
 const texCache = new WeakMap<object, { w: number; h: number; d: Uint8ClampedArray }>();
-function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3, E: number, u: number, look: Look, hairC: THREE.Color, skinC: THREE.Color) {
+function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3, E: number, u: number, look: Look, hairC: THREE.Color, skinC: THREE.Color, eyeC: THREE.Color, swap: boolean, EX: number) {
   const m = head.material as THREE.MeshStandardMaterial;
   const img = m.map?.image as CanvasImageSource & { width: number; height: number } | undefined;
   if (!img) return;
@@ -356,8 +304,8 @@ function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3
     if (r >= 200 && g >= 150 && b >= 105 && r - b >= 45) { skinAvg.add(new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiply(base)); ns++; }
   }
   if (ns) skinAvg.multiplyScalar(1 / ns); else skinAvg.copy(skinC);
-  const showOld = look.oldHair === 'model';           // cabelo original do modelo (opcional)
-  const flat = look.hair === 'none' && !showOld && a.spec.model !== 'Barbarian';   // o Bárbaro/Monge já tem a cabeça lisa do modelo     // careca: alisa o topete/volume do cabelo do modelo
+  const showOld = !swap;                              // cabelo original do modelo (só no gênero do modelo)
+  const flat = swap && a.spec.model !== 'Barbarian';   // o Bárbaro/Monge já tem a cabeça lisa do modelo     // careca: alisa o topete/volume do cabelo do modelo
   const flatIdx: number[] = [], flatW: THREE.Vector3[] = [];
   const noBeard = a.spec.model === 'Barbarian' && look.face !== 'beard';
   for (let i = 0; i < pos.count; i++) {
@@ -366,14 +314,14 @@ function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3
     const k = (py * tex.w + px) * 4, r = tex.d[k], g = tex.d[k + 1], b = tex.d[k + 2];
     const skinTex = r >= 200 && g >= 150 && b >= 105 && r - b >= 45;
     const skin = skinTex && !(a.spec.model === 'Knight' && t.y > E + 0.1 * u);       // cabelo loiro tem cor de pele: acima da testa conta como cabelo
-    const inEye = !skin && t.y > E - 0.075 * u && t.y < E + 0.05 * u && t.z > c.z && Math.abs(t.x - c.x) < 0.3 * u;
+    const inEye = !skin && r < 50 && g < 50 && b < 60 && t.z > c.z && ((Math.abs(t.x - c.x) - EX) / (0.065 * u)) ** 2 + ((t.y - E) / (0.075 * u)) ** 2 < 1;
     const metal = b >= g && g >= r && r + g + b > 400;
     const cloth = b > r + 25;
     if (skin || (!inEye && (metal || cloth))) continue;
     const beard = t.y < E - 0.06 * u && t.z > c.z;
     const brow = !inEye && t.z > c.z && t.y >= E + 0.05 * u && t.y < E + 0.1 * u && Math.abs(t.x - c.x) < 0.3 * u;
     // olhos desenhados no modelo somem (os olhos vêm do editor); cabelo do modelo só se escolhido
-    const target = inEye ? skinAvg : beard ? (noBeard ? skinAvg : hairC) : brow ? hairC : (showOld ? hairC : skinAvg);
+    const target = inEye ? eyeC : beard ? (noBeard ? skinAvg : hairC) : brow ? hairC : (showOld || t.y > E + 0.03 * u ? hairC : skinAvg);
     if (flat && !inEye && !beard && !brow) { flatIdx.push(i); flatW.push(t.clone()); }
     const orig = new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiply(base);
     cols[i * 3] = Math.min(500, target.r / Math.max(0.004, orig.r));
