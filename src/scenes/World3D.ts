@@ -231,6 +231,18 @@ export class World3D {
       pt.group.position.set(d.x / TILE, terrain.groundY(d.x, d.y), d.y / TILE);
       overPortals.push({ x: d.x, y: d.y, kind: 'in', dungeon: d.id, group: pt.group, tick: pt.update, label: this.mkLabel(df.name, '#d9c8ff') });
     }
+    for (const f of this.world.finds) {
+      const fq = QUESTS.find((z) => z.id === f.q)!;
+      const g = new THREE.Group();
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.22), new THREE.MeshBasicMaterial({ color: fq.find!.color }));
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.03, 6, 20).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: fq.find!.color, transparent: true, opacity: 0.6 }));
+      core.position.y = 0.7; halo.position.y = 0.15;
+      g.add(core, halo);
+      g.position.set(f.x / TILE, terrain.groundY(f.x, f.y), f.y / TILE);
+      g.visible = false;
+      terrain.group.add(g);
+      this.finds.push({ key: `${f.q}:${f.i}`, q: f.q, x: f.x, y: f.y, g, core });
+    }
     for (const bd of BUILDINGS) {
       terrain.group.add(buildBuilding(bd, terrain.groundY((bd.x0 + bd.w / 2) * TILE, (bd.y0 + bd.h / 2) * TILE)));
       const d = doorTile(bd), lab = this.mkLabel(bd.name, '#ffe9a8');
@@ -505,11 +517,32 @@ export class World3D {
   }
 
   // ---------- monstros do servidor (modo online) ----------
+  /** objetos das missões de achar coisas (visíveis só com a missão ativa e ainda não recolhidos) */
+  private finds: { key: string; q: string; x: number; y: number; g: THREE.Group; core: THREE.Mesh }[] = [];
+  private updateFinds(now: number) {
+    for (const f of this.finds) {
+      const st = player.quests[f.q];
+      const on = this.loc === this.over && !!st && st.state === 'active' && !st.got?.includes(f.key);
+      f.g.visible = on;
+      if (!on) continue;
+      f.core.position.y = 0.7 + Math.sin(now / 400 + f.x) * 0.12; f.core.rotation.y = now / 600;
+      if (Math.hypot(f.x - this.p.x, f.y - this.p.y) < TILE * 1.6) {
+        const fq = QUESTS.find((z) => z.id === f.q)!;
+        (st.got ??= []).push(f.key);
+        st.progress = st.got.length;
+        sfx.loot(2);
+        this.vfx.rise(this.P(f.x, f.y, 0.4), fq.find!.color, 14, 0.7, 0.9);
+        if (st.progress >= fq.count) { st.state = 'ready'; bus.emit('log', `${fq.find!.name} ${st.progress}/${fq.count} — missão cumprida: ${fq.title}! Volte ao Capitão Brann.`, '#7ee787'); }
+        else bus.emit('log', `Você encontrou: ${fq.find!.name} (${st.progress}/${fq.count})`, '#ffe9a8');
+        save();
+      }
+    }
+  }
   private srvOn() { return this.srvReady && this.net?.status === 'on' && this.loc === this.over; }
   private isSrv(m: Mob) { return m.idx !== undefined && this.srvOn(); }
 
   private sheetMsg(): SheetMsg {
-    return { raceId: player.raceId, classId: player.classId, level: player.level, equipped: player.equipped as Record<string, unknown>, skills: player.skills, attrs: player.attrs };
+    return { raceId: player.raceId, classId: player.classId, level: player.level, equipped: player.equipped as Record<string, unknown>, skills: player.skills, attrs: player.attrs, wskills: player.wskills };
   }
 
   /** instantâneo de monstros próximos: [idx, x, y, hp, flags, face] (flags: 1 morto, 2 perseguindo, 4 andando) */
@@ -888,6 +921,7 @@ export class World3D {
       const zn = this.loc.zoneOf(Math.floor(this.p.x / TILE), Math.floor(this.p.y / TILE));
       if (zn !== this.zoneId) { this.zoneId = zn; setMusicZone(zn); bus.emit('zone', this.loc.zones[zn]); }
     }
+    this.updateFinds(now);
     if (this.loc === this.over && now > this.revealAt) { this.revealAt = now + 400; reveal(this.p.x / TILE, this.p.y / TILE, 12); }
     if (now > this.hudAt) { this.hudAt = now + 100; this.emitHud(now); }
     if (now > this.saveAt) { this.saveAt = now + 8000; player.pos = this.loc === this.over ? { x: this.p.x, y: this.p.y } : { ...this.overPos }; save(); }

@@ -5,7 +5,7 @@ import { ABILITIES, Ability, ABILITY_NAMES, ABILITY_SHORT, Bonus, addBonus, bonu
  * Árvores de progressão de cada classe.
  *  - Habilidades: um ramo para cada habilidade da classe (Potência → Eficiência → Maestria) + um ramo de treino passivo.
  *  - Atributos: três caminhos (atributo principal, Constituição e um terceiro) com nós que sobem os valores de atributo.
- * Pontos: 1 de habilidade por nível (+1 nos níveis 5 e 10), 1 de atributo por nível a partir do 2 (+1 nos níveis 5 e 10).
+ * Pontos: 1 de habilidade por nível (+1 nos níveis 5, 10, 15 e 20), 1 de atributo por nível a partir do 2 (+1 nos níveis 5, 10, 15 e 20).
  */
 export interface SkillMod { dmgPct?: number; cdPct?: number; costPct?: number }
 export interface TreeNode {
@@ -18,8 +18,9 @@ export interface TreeNode {
 }
 export interface Tree { title: string; branches: { name: string; icon: string }[]; nodes: TreeNode[] }
 
-export const skillPointsTotal = (level: number) => level + (level >= 5 ? 1 : 0) + (level >= 10 ? 1 : 0);
-export const attrPointsTotal = (level: number) => Math.max(0, level - 1) + (level >= 5 ? 1 : 0) + (level >= 10 ? 1 : 0);
+const bonusPts = (level: number) => (level >= 5 ? 1 : 0) + (level >= 10 ? 1 : 0) + (level >= 15 ? 1 : 0) + (level >= 20 ? 1 : 0);
+export const skillPointsTotal = (level: number) => level + bonusPts(level);
+export const attrPointsTotal = (level: number) => Math.max(0, level - 1) + bonusPts(level);
 
 const PASSIVES: Record<'melee' | 'magic' | 'ranged', { name: string; icon: string; b: Bonus }[]> = {
   melee: [

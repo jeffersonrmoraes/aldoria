@@ -15,7 +15,9 @@ import { portrait } from '../art/portrait';
 import { EYE_COLORS, Look, OUTFITS, Opt, defaultLook, heightScale, randomLook } from '../data/looks';
 import { MATS, canPay, craftCost, payMats } from '../data/materials';
 import { bus } from '../game/bus';
-import { attrTree, attrPointsLeft, attrPointsTotal, buyNode, nodeState, respecCost, skillPointsLeft, skillPointsTotal, skillTree, Tree } from '../data/progression';
+import { FAMILIES, buyWeaponNode, weaponNodeState, weaponPointsLeft, weaponPointsTotal, weaponTree } from '../data/weapontree';
+import { FAMILY_NAMES, WeaponFamily, weaponFamily } from '../data/weaponskills';
+import { attrTree, attrPointsLeft, attrPointsTotal, buyNode, nodeState, respecCost, skillPointsLeft, skillPointsTotal, skillTree, Tree, TreeNode } from '../data/progression';
 import { ENCHANTS, ROMAN, enchantCost, enchLine } from '../data/enchants';
 import { SET_BY_ID, activeSets, setTipHtml } from '../data/sets';
 import { buyPrice, buysItem, dumpValue, fmtGold, potionPrice, registerSale, sellOffer } from '../data/economy';
@@ -353,7 +355,7 @@ function onHud(s: {
   const span = Math.max(1, s.xpNext - s.xpCur);
   q('#xp').style.width = (player.level >= MAX_LEVEL ? 100 : Math.min(100, ((s.xp - s.xpCur) / span) * 100)) + '%';
   q('#gold').textContent = fmtGold(player.gold);
-  const pts = skillPointsLeft(player) + attrPointsLeft(player);
+  const pts = skillPointsLeft(player) + attrPointsLeft(player) + weaponPointsLeft(player);
   const bk = q('#bk');
   if (bk.dataset.n !== String(pts)) { bk.dataset.n = String(pts); bk.innerHTML = `Habilidades (K)${pts ? `<span class="badge">${pts}</span>` : ''}`; }
 
@@ -402,7 +404,7 @@ function onHud(s: {
   const html = act.map((x) => {
     const st = player.quests[x.id];
     const main = 'main' in x;
-    return `<div style="margin-top:4px"><b style="color:${main ? '#ffd23f' : '#fff'}">${main ? '★ ' : ''}${x.title}</b><br>${st.state === 'ready' ? `<span style="color:#7ee787">Pronta! Volte ao ${main ? 'Sábio Orin' : 'Capitão Brann'}</span>` : `Progresso: ${st.progress}/${x.count}`}</div>`;
+    return `<div style="margin-top:4px"><b style="color:${main ? '#ffd23f' : '#fff'}">${main ? '★ ' : ''}${x.title}</b><br>${st.state === 'ready' ? `<span style="color:#7ee787">Pronta! Volte ao ${main ? 'Sábio Orin' : 'Capitão Brann'}</span>` : `Progresso: ${st.progress}/${x.count}${'find' in x && x.find ? `<br><span style="color:#a79cc4">${x.find.icon} ${x.find.name} — procure em: ${x.find.hint}</span>` : ''}`}</div>`;
   }).join('');
   if (html !== lastQuestHtml) {
     lastQuestHtml = html;
@@ -763,34 +765,47 @@ function forgeWindow() {
 }
 
 // ======================== ÁRVORES ========================
-let skTab: 'skills' | 'attrs' = 'skills';
-function renderSkills(tab: 'skills' | 'attrs') {
+type SkTab = 'skills' | 'attrs' | 'weapons';
+let skTab: SkTab = 'skills';
+let wFam: WeaponFamily | null = null;
+function renderSkills(tab: SkTab) {
   skTab = tab;
-  const tree: Tree = tab === 'skills' ? skillTree(player.classId) : attrTree(player.classId);
-  const left = tab === 'skills' ? skillPointsLeft(player) : attrPointsLeft(player);
-  const total = tab === 'skills' ? skillPointsTotal(player.level) : attrPointsTotal(player.level);
+  const eqFam = weaponFamily(player.equipped.mainhand?.name);
+  if (tab === 'weapons' && !wFam) wFam = eqFam;
+  const fam = wFam ?? eqFam;
+  const tree: Tree = tab === 'skills' ? skillTree(player.classId) : tab === 'attrs' ? attrTree(player.classId) : weaponTree(fam);
+  const left = tab === 'skills' ? skillPointsLeft(player) : tab === 'attrs' ? attrPointsLeft(player) : weaponPointsLeft(player);
+  const total = tab === 'skills' ? skillPointsTotal(player.level) : tab === 'attrs' ? attrPointsTotal(player.level) : weaponPointsTotal(player.level);
+  const stOf = (n: TreeNode) => (tab === 'weapons' ? weaponNodeState(player, n) : nodeState(player, tab, n));
   const cols = tree.branches.map((br, bi) => {
     const nodes = tree.nodes.filter((n) => n.branch === bi).sort((a, b) => a.tier - b.tier);
     return `<div class="tcol"><h4>${br.icon} ${br.name}</h4>${nodes.map((n, k) => {
-      const st = nodeState(player, tab, n);
+      const st = stOf(n);
       return `${k ? '<div class="arrow">▼</div>' : ''}<div class="node ${st}" data-n="${n.id}" title="${n.desc}"><b>${n.icon} ${n.name}</b>${n.desc}<br><span style="color:#ffd23f">✦ ${n.cost}${st === 'owned' ? ' ✔' : ''}</span></div>`;
     }).join('')}</div>`;
   }).join('');
+  const famBar = tab === 'weapons'
+    ? `<div class="tabs" style="flex-wrap:wrap">${FAMILIES.map((f) => `<button data-fam="${f}" class="${f === fam ? 'on' : ''}">${FAMILY_NAMES[f]}${f === eqFam ? ' ✋' : ''}</button>`).join('')}</div>
+       <div style="font-size:12px;color:#a79cc4">✋ = arma empunhada. Os bônus só valem enquanto você empunha este tipo de arma; as habilidades 5/6 são as dele.</div>`
+    : '';
   const w = setWin(`<h3>${tree.title}${closeBtn}</h3>
-    <div class="tabs"><button data-tab="skills" class="${tab === 'skills' ? 'on' : ''}">⚔️ Habilidades</button><button data-tab="attrs" class="${tab === 'attrs' ? 'on' : ''}">📊 Atributos</button></div>
-    <div style="font-size:13px">Pontos disponíveis: <b style="color:#ffd23f">${left}</b> / ${total} <span style="color:#a79cc4">(ganhos por nível, com bônus nos níveis 5 e 10)</span></div>
+    <div class="tabs"><button data-tab="skills" class="${tab === 'skills' ? 'on' : ''}">⚔️ Habilidades</button><button data-tab="attrs" class="${tab === 'attrs' ? 'on' : ''}">📊 Atributos</button><button data-tab="weapons" class="${tab === 'weapons' ? 'on' : ''}">🗡️ Armas</button></div>
+    ${famBar}
+    <div style="font-size:13px">Pontos disponíveis: <b style="color:#ffd23f">${left}</b> / ${total} <span style="color:#a79cc4">(ganhos por nível, com bônus nos níveis 5, 10, 15 e 20)</span></div>
     <div class="tree">${cols}</div>
     <div class="row"><button id="respec">🔄 Redistribuir pontos (🪙 ${fmtGold(respecCost(player.level))})</button></div>`);
   bindClose(w);
-  w.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => (b.onclick = () => renderSkills(b.dataset.tab as 'skills' | 'attrs')));
+  w.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => (b.onclick = () => renderSkills(b.dataset.tab as SkTab)));
+  w.querySelectorAll<HTMLElement>('[data-fam]').forEach((b) => (b.onclick = () => { wFam = b.dataset.fam as WeaponFamily; renderSkills('weapons'); }));
   w.querySelectorAll<HTMLElement>('.node.open').forEach((e) => (e.onclick = () => {
-    if (buyNode(player, tab, e.dataset.n!)) { bus.emit('recalc'); save(); renderSkills(tab); }
+    const ok = tab === 'weapons' ? buyWeaponNode(player, fam, e.dataset.n!) : buyNode(player, tab, e.dataset.n!);
+    if (ok) { bus.emit('recalc'); save(); renderSkills(tab); }
   }));
   q('#respec', w).onclick = () => {
     const c = respecCost(player.level);
-    if (!player.skills && !player.attrs) return;
+    if (!player.skills && !player.attrs && !player.wskills) return;
     if (player.gold < c) { onLog('Ouro insuficiente para redistribuir.', '#ff8a8a'); return; }
-    player.gold -= c; player.skills = {}; player.attrs = {}; bus.emit('recalc'); save(); onLog('Pontos redistribuídos.', '#ffd23f'); renderSkills(tab);
+    player.gold -= c; player.skills = {}; player.attrs = {}; player.wskills = {}; bus.emit('recalc'); save(); onLog('Pontos redistribuídos.', '#ffd23f'); renderSkills(tab);
   };
 }
 

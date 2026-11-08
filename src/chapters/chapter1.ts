@@ -27,6 +27,8 @@ export interface Quest {
   gold: number;
   potion?: 'heal' | 'energy';
   item?: boolean;
+  /** missão de achar objetos espalhados pelo mundo (zona 'any' = qualquer região perigosa) */
+  find?: { name: string; icon: string; color: number; zone: string; hint: string };
 }
 
 export interface SpawnPoint { mob: string; x: number; y: number; boss?: boolean }
@@ -74,6 +76,21 @@ export const QUESTS: Quest[] = [
   { id: 'q3', title: 'Ameaça na Floresta', desc: 'Goblins emboscam viajantes na Floresta Sombria. Elimine 8.', mob: 'goblin', count: 8, minLevel: 3, xp: 220, gold: 70, potion: 'heal' },
   { id: 'q4', title: 'Os Mortos Inquietos', desc: 'Esqueletos vagam pela Cripta Esquecida. Destrua 8.', mob: 'skeleton', count: 8, minLevel: 5, xp: 380, gold: 110, potion: 'heal' },
   { id: 'q5', title: 'Guerra nas Colinas', desc: 'Os orcs se reúnem a leste. Derrote 8 deles.', mob: 'orc', count: 8, minLevel: 7, xp: 650, gold: 180, item: true },
+  // ---- missões de encontrar coisas (objetos brilhando pelo mundo; ande até perto para recolher) ----
+  { id: 'f1', title: 'Ervas Lunares', desc: 'A curandeira precisa de ervas lunares, que brilham de azul nos Campos Verdes. Encontre 5.', mob: '', count: 5, minLevel: 1, xp: 90, gold: 30, potion: 'heal',
+    find: { name: 'Erva Lunar', icon: '🌿', color: 0x6ad0ff, zone: 'fields', hint: 'Campos Verdes' } },
+  { id: 'f2', title: 'Cogumelos Luminosos', desc: 'Alquimistas pagam bem por cogumelos que brilham na Floresta Sombria. Colha 6.', mob: '', count: 6, minLevel: 3, xp: 260, gold: 70, potion: 'energy',
+    find: { name: 'Cogumelo Luminoso', icon: '🍄', color: 0xb0ff6a, zone: 'forest', hint: 'Floresta Sombria' } },
+  { id: 'f3', title: 'Relicários dos Mortos', desc: 'Famílias imploram que os relicários de seus ancestrais sejam resgatados da Cripta Esquecida. Traga 5.', mob: '', count: 5, minLevel: 5, xp: 420, gold: 120, potion: 'heal',
+    find: { name: 'Relicário Antigo', icon: '⚱️', color: 0xffe08a, zone: 'crypt', hint: 'Cripta Esquecida' } },
+  { id: 'f4', title: 'Estandartes Roubados', desc: 'Os orcs tomaram estandartes da guarda. Recupere 5 nas Colinas dos Orcs.', mob: '', count: 5, minLevel: 7, xp: 700, gold: 190, item: true,
+    find: { name: 'Estandarte da Guarda', icon: '🚩', color: 0xff6a5a, zone: 'orcs', hint: 'Colinas dos Orcs' } },
+  { id: 'f5', title: 'Cristais Rúnicos', desc: 'Cristais rúnicos soltos pelo Covil do Ogro ainda guardam magia do Selo. Reúna 5.', mob: '', count: 5, minLevel: 9, xp: 1500, gold: 450, item: true,
+    find: { name: 'Cristal Rúnico', icon: '💎', color: 0xc08aff, zone: 'ogre', hint: 'Covil do Ogro' } },
+  { id: 'f6', title: 'Pedras da Alma', desc: 'Fragmentos de alma de heróis caídos jazem nas terras selvagens, em qualquer região. Encontre 8.', mob: '', count: 8, minLevel: 12, xp: 4200, gold: 900, item: true,
+    find: { name: 'Pedra da Alma', icon: '🔮', color: 0x7affd0, zone: 'any', hint: 'qualquer região selvagem' } },
+  { id: 'f7', title: 'Selos Esquecidos', desc: 'Selos menores da Ordem da Aurora ainda brilham em ruínas espalhadas por Aldoria. Recolha 10.', mob: '', count: 10, minLevel: 16, xp: 8000, gold: 1800, item: true,
+    find: { name: 'Selo Esquecido', icon: '📿', color: 0xffd23f, zone: 'any', hint: 'qualquer região selvagem' } },
   { id: 'q6', title: 'A Queda do Ogro Ancião', desc: 'Gnarlmaw lidera os ogros no Covil ao sul. Derrote-o (recomendado em grupo).', mob: 'gnarlmaw', count: 1, minLevel: 9, xp: 1400, gold: 500, item: true },
 ];
 
@@ -85,6 +102,8 @@ export interface WorldData {
   dungeons: { id: string; x: number; y: number }[];
   /** casas de moradores: centro em tiles e direção da porta (vetor unitário) */
   villageHouses: { cx: number; cz: number; fx: number; fz: number }[];
+  /** objetos de missões de encontrar coisas: q = id da missão, i = número do objeto */
+  finds: { q: string; i: number; x: number; y: number }[];
 }
 
 function mulberry32(a: number) {
@@ -296,6 +315,25 @@ export function generateWorld(): WorldData {
     }
   }
   spawns.push({ mob: 'gnarlmaw', x: lair.x * TILE + 8, y: lair.y * TILE + 8, boss: true });
+  // objetos das missões de achar coisas (gerador próprio: não altera a ordem dos spawns)
+  const finds: WorldData['finds'] = [];
+  const wild = ['fields', 'forest', 'crypt', 'orcs', 'ogre'];
+  for (const fq of QUESTS) {
+    if (!fq.find) continue;
+    const fr = mulberry32(9100 + fq.id.charCodeAt(1) * 31);
+    let n = 0, guard = 0;
+    while (n < fq.count && guard++ < 30000) {
+      const x = 4 + Math.floor(fr() * (W - 8)), y = 4 + Math.floor(fr() * (H - 8));
+      const zn = zoneAt(x, y);
+      if (fq.find.zone === 'any' ? !wild.includes(zn) : zn !== fq.find.zone) continue;
+      if (blocked(x, y) || tiles[y][x] === T.water) continue;
+      if (dist(x, y) <= TOWN_R + 4 || VILLAGES.some((v) => Math.hypot(x - v.cx, y - v.cy) <= v.r + 3)) continue;
+      if (DUNGEONS.some((d) => Math.hypot(x - d.entrance.tx, y - d.entrance.ty) < 6)) continue;
+      if (finds.some((f) => f.q === fq.id && Math.hypot(f.x / TILE - x, f.y / TILE - y) < 12)) continue;
+      finds.push({ q: fq.id, i: n, x: x * TILE + 8, y: y * TILE + 8 });
+      n++;
+    }
+  }
   // guardas: dois em cada portão e três patrulhando as ruas (os demais NPCs vivem dentro dos edifícios)
   const npcs: NpcDef[] = [];
   const px = (t: number) => t * TILE + 8;
@@ -318,7 +356,7 @@ export function generateWorld(): WorldData {
   npcs.push({ id: 'guard', name: 'Guarda da Vila', x: px(CX - 14.4), y: px(CY), path: ringPath(14.4, 16, true, Math.PI) });
   npcs.push({ id: 'guard', name: 'Guarda da Vila', x: px(FOUNTAIN.x + 6), y: px(FOUNTAIN.y), path: ringPath(6, 10, false, 0).map((p) => ({ x: p.x - px(CX) + px(FOUNTAIN.x), y: p.y - px(CY) + px(FOUNTAIN.y) })) });
   return {
-    villageHouses, tiles, spawns, npcs, start: { x: CX * TILE + 8, y: (CY + 1) * TILE + 8 },
+    villageHouses, finds, tiles, spawns, npcs, start: { x: CX * TILE + 8, y: (CY + 1) * TILE + 8 },
     dungeons: DUNGEONS.map((d) => ({ id: d.id, x: d.entrance.tx * TILE + 8, y: d.entrance.ty * TILE + 8 })),
   };
 }

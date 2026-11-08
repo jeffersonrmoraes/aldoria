@@ -22,8 +22,8 @@ export const fmtDice = (d: Dice, bonus = 0) =>
   `${d[0]}d${d[1]}${bonus ? (bonus > 0 ? '+' + bonus : '' + bonus) : ''}`;
 
 /** XP acumulado necessário para ALCANÇAR o nível (índice = nível-1). */
-export const XP_TABLE = [0, 100, 300, 600, 1000, 1600, 2400, 3400, 4600, 6000];
-export const MAX_LEVEL = XP_TABLE.length; // Capítulo 1: nível máximo 10
+export const XP_TABLE = [0, 100, 300, 600, 1000, 1600, 2400, 3400, 4600, 6000, 7800, 9800, 12000, 14400, 17000, 19800, 22800, 26000, 29400, 33000];
+export const MAX_LEVEL = XP_TABLE.length; // nível máximo 20 (como no D&D); os monstros do Capítulo 1 vão até o nível 10
 
 export const levelFromXp = (xp: number) => {
   let l = 1;

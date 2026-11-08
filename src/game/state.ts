@@ -1,6 +1,7 @@
 import { CLASS_POWER } from '../data/balance';
 import { ABILITIES, Ability, Bonus, addBonus, levelFromXp, mod, prof, XP_TABLE, MAX_LEVEL } from '../data/rules';
 import { treeTotals } from '../data/progression';
+import { weaponBonus } from '../data/weapontree';
 import { activeSets } from '../data/sets';
 import { enchBonus } from '../data/enchants';
 import { ARMOR_RANK, CLASS_BY_ID, Style } from '../data/classes';
@@ -10,7 +11,7 @@ import { bus } from './bus';
 import { Look, sanitizeLook } from '../data/looks';
 import type { Mats } from '../data/materials';
 
-export interface QuestProgress { progress: number; state: 'active' | 'ready' | 'done' }
+export interface QuestProgress { progress: number; state: 'active' | 'ready' | 'done'; got?: string[] }   // got: objetos já recolhidos (missões de encontrar coisas)
 
 export interface PlayerState {
   v: number;
@@ -36,6 +37,8 @@ export interface PlayerState {
   explored?: string;
   /** nós comprados nas árvores de habilidade e de atributos */
   skills?: Record<string, 1>;
+  /** nós comprados na árvore de armas (`familia:no`) */
+  wskills?: Record<string, 1>;
   attrs?: Record<string, 1>;
   /** instante do último salvamento (resolve conflito entre o save local e o da nuvem) */
   sv?: number;
@@ -104,6 +107,7 @@ export function derive(p: PlayerState): Derived {
   for (const sl of ['head', 'legs', 'offhand', 'accessory', 'body', 'mainhand'] as Slot[]) addBonus(tr, p.equipped[sl]?.stat);
   for (const st of activeSets(p.equipped)) addBonus(tr, st.bonus);   // conjuntos de armadura
   addBonus(tr, enchBonus(w?.ench));                                  // encantamento da arma
+  addBonus(tr, weaponBonus(p));                                      // árvore de armas (tipo empunhado)
   addBonus(tr, tt.bonus);                                            // árvores de habilidade/atributos
   const pieceAc = (p.equipped.head?.ac ?? 0) + (p.equipped.legs?.ac ?? 0) + (off?.offKind === 'shield' ? off.ac ?? 0 : 0);
 

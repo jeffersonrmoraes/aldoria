@@ -42,7 +42,7 @@ function cleanItem(slot: Slot, raw: unknown): Item | null {
 
 const flags = (v: unknown) => {
   const o: Record<string, 1> = {};
-  if (isObj(v)) for (const k of Object.keys(v).slice(0, 120)) if (v[k]) o[str(k, 40)] = 1;
+  if (isObj(v)) for (const k of Object.keys(v).slice(0, 220)) if (v[k]) o[str(k, 40)] = 1;
   return o;
 };
 
@@ -53,7 +53,7 @@ export function sanitizeSheet(m: SheetMsg, rejected?: string[]): PlayerState | n
     v: 3, name: '', raceId: String(m.raceId), classId: String(m.classId), tone: '',
     level: Math.round(num(m.level, 1, MAX_LEVEL, 1)), xp: 0, gold: 0, hp: 1, en: 1, items: [], equipped: {},
     potions: { heal: 0, energy: 0 }, quests: {}, kills: 0, pos: { x: 0, y: 0 }, story: { fragments: [], seen: {}, ended: false },
-    skills: flags(m.skills), attrs: flags(m.attrs),
+    skills: flags(m.skills), attrs: flags(m.attrs), wskills: flags(m.wskills),
   };
   const eq = isObj(m.equipped) ? m.equipped : {};
   for (const sl of SLOTS) {

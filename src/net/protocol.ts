@@ -1,5 +1,5 @@
 // Protocolo cliente <-> servidor (v3). Espelho de server/src/protocol.ts — mantenha os dois iguais.
-export const PROTOCOL = 6;
+export const PROTOCOL = 7;
 
 /** Dados públicos de um jogador (aparência e identificação). */
 export interface PlayerInfo {
@@ -33,7 +33,7 @@ export interface PosMsg { x: number; y: number; f: number; mv: number; loc: stri
 export interface SheetMsg {
   raceId: string; classId: string; level: number;
   equipped: Record<string, unknown>;
-  skills?: Record<string, 1>; attrs?: Record<string, 1>;
+  skills?: Record<string, 1>; attrs?: Record<string, 1>; wskills?: Record<string, 1>;
 }
 
 /** 'atk': ataque básico contra o monstro de índice m. */

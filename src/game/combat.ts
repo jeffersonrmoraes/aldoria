@@ -4,6 +4,7 @@ import { Buff, SkillDef, d20, roll } from '../data/rules';
 import { CLASS_BY_ID } from '../data/classes';
 import { RACE_BY_ID } from '../data/races';
 import { skillMod } from '../data/progression';
+import { weaponSkillMod } from '../data/weapontree';
 import { WEAPON_SKILLS, weaponFamily } from '../data/weaponskills';
 import { MobDef } from '../data/monsters';
 import { Derived, PlayerState } from './state';
@@ -11,11 +12,11 @@ import { Derived, PlayerState } from './state';
 /** Habilidade com os bônus da árvore de habilidades aplicados (dano, recarga, custo). */
 export function skillAt(p: PlayerState, i: number): SkillDef | undefined {
   if (i === 3) return RACE_BY_ID[p.raceId].racial;
-  if (i === 4 || i === 5) return WEAPON_SKILLS[weaponFamily(p.equipped.mainhand?.name)][i - 4];   // habilidades da arma empunhada
   if (i < 0 || i > 5) return undefined;
-  const base = CLASS_BY_ID[p.classId].skills[i];
+  const wi = i - 4;
+  const base = i >= 4 ? WEAPON_SKILLS[weaponFamily(p.equipped.mainhand?.name)][wi] : CLASS_BY_ID[p.classId].skills[i];   // 4–5: habilidades da arma empunhada
   if (!base) return undefined;
-  const m = skillMod(p, i);
+  const m = i >= 4 ? weaponSkillMod(p, wi) : skillMod(p, i);
   if (!m.dmgPct && !m.cdPct && !m.costPct) return base;
   return {
     ...base,
@@ -49,7 +50,7 @@ export function basicHit(d: Derived, p: Pick<PlayerState, 'raceId'>, ac: number,
 
 /** XP concedido ao derrotar um monstro (penaliza quem é muito mais forte que ele). */
 export function killXp(def: MobDef, level: number, raceId: string, xpPct: number): number {
-  const diff = level - def.level;
+  const diff = Math.min(level, 10) - def.level;   // acima do nível 10 a penalidade não cresce (o conteúdo do Capítulo 1 acaba no 10)
   const mult = diff >= 5 ? 0.2 : diff >= 3 ? 0.6 : 1;
   return Math.round(def.xp * mult * (1 + (RACE_BY_ID[raceId].mods.xp ?? 0) + xpPct));
 }
