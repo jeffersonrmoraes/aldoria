@@ -22,7 +22,7 @@ export function buysItem(shop: ShopId, it: Item): boolean {
 }
 /** Qual a melhor loja da cidade para vender este item (para dicas na mochila). */
 export function bestShopFor(it: Item): ShopId | null {
-  const order: ShopId[] = ['smith', 'sage', 'archer', 'monk', 'rogue', 'cleric', 'druid', 'bard', 'necro', 'barbarian'];
+  const order: ShopId[] = ['smith', 'sage'];
   return order.find((s) => buysItem(s, it)) ?? null;
 }
 

@@ -441,17 +441,17 @@ export function describeItem(i: Item): string {
 // ---------- loja de itens raros (caros) ----------
 export const shopPrice = (it: Item) => Math.round(it.value * (it.rarity >= 4 ? 16 : 10));
 
-export type ShopId = 'smith' | 'sage' | 'archer' | 'monk' | 'rogue' | 'general' | 'cleric' | 'druid' | 'bard' | 'necro' | 'barbarian';
+export type ShopId = 'smith' | 'sage' | 'general';
 interface ShopLine { slot: Slot; r: Rarity[]; style?: Style; only?: RegExp; types?: ArmorType[]; off?: OffKind[] }
 export interface ShopInfo { npc: string; quote: string; section: string; potions?: boolean; lines: ShopLine[] }
 const NORMAL_ACC = /(Prote|Vitalidade|Fúria|Botas Velozes)/;
 const MAGIC_ACC = /(Amuleto Arcano|Anel do Mago|Pingente de Cristal)/;
-const MONK_GEAR = /(Monge|Mosteiro|Punho Celestial|Mestre Ki)/;
 export const SHOP_INFO: Record<ShopId, ShopInfo> = {
   smith: {
-    npc: 'Ferreira Durga', quote: '“Aço forjado com fogo de dragão. Barato não é, mas dura.”', section: 'Espadas, machados, escudos e armaduras',
+    npc: 'Ferreira Durga', quote: '“Aço forjado com fogo de dragão. Barato não é, mas dura.”', section: 'Armas, escudos e armaduras',
     lines: [
       { slot: 'mainhand', style: 'melee', only: /^(adaga|espada|ma[çc]a|machad|martelo|montante|l[âa]mina)/i, r: [2, 3, 3, 3] },
+      { slot: 'mainhand', style: 'ranged', only: /^(arco|besta)/i, r: [2, 3] },
       { slot: 'body', types: ['light', 'medium', 'heavy'], r: [2, 3, 3] },
       { slot: 'head', types: ['light', 'medium', 'heavy'], r: [2, 3] },
       { slot: 'legs', types: ['light', 'medium', 'heavy'], r: [2, 3] },
@@ -470,96 +470,6 @@ export const SHOP_INFO: Record<ShopId, ShopInfo> = {
       { slot: 'head', types: ['cloth'], only: /(Chap[ée]u|Capuz Arcano)/, r: [2, 3] },
       { slot: 'legs', types: ['cloth'], only: /(Viagem|R[úu]nicas|Estelares)/, r: [2, 3] },
       { slot: 'accessory', only: MAGIC_ACC, r: [2, 3, 3] },
-    ],
-  },
-  archer: {
-    npc: 'Arqueira Lyra Folhaverde', quote: '“Um bom arco canta quando solta a corda. Escolha o seu.”', section: 'Arcos, bestas, aljavas, flechas e couros de caça',
-    lines: [
-      { slot: 'mainhand', style: 'ranged', only: /^(arco|besta(?! de pulso))/i, r: [2, 3, 3] },
-      { slot: 'mainhand', style: 'ranged', only: /^(besta de pulso|bra[çc]adeira)/i, r: [2, 3, 3] },
-      { slot: 'body', types: ['light', 'medium'], r: [2, 3, 3] },
-      { slot: 'head', types: ['light', 'medium'], r: [2, 3] },
-      { slot: 'legs', types: ['light', 'medium'], r: [2, 3] },
-      { slot: 'accessory', only: /(Aljava|Flechas|Braçais)/, r: [2, 3, 3, 3] },
-    ],
-  },
-  monk: {
-    npc: 'Mestre Kaelen', quote: '“O punho e a mente são uma só arma. Vista-se leve e golpeie com o ki.”', section: 'Manoplas, bastões, vestes de monge e talismãs de ki',
-    lines: [
-      { slot: 'mainhand', style: 'melee', only: /^(manopla|kama|punhos|bast[ãa]o)/i, r: [2, 3, 3] },
-      { slot: 'mainhand', style: 'melee', only: /^bord[ãa]o/i, r: [2, 3, 3] },
-      { slot: 'body', types: ['cloth'], only: MONK_GEAR, r: [2, 3, 3] },
-      { slot: 'head', types: ['cloth'], only: MONK_GEAR, r: [2, 3] },
-      { slot: 'legs', types: ['cloth'], only: MONK_GEAR, r: [2, 3] },
-      { slot: 'accessory', only: /(Faixa do Punho|Anel de Ki|Sand[áa]lias)/, r: [2, 3, 3] },
-    ],
-  },
-  rogue: {
-    npc: 'Nyx Mãos-Leves', quote: '“Psiu... lâminas leves, couro silencioso e nenhuma pergunta. Preço fechado.”', section: 'Adagas, rapieiras, couro leve e ferramentas de ladrão',
-    lines: [
-      { slot: 'mainhand', style: 'melee', only: /^(adaga|espada curta|rapieira)/i, r: [2, 3, 3] },
-      { slot: 'mainhand', style: 'melee', only: /^bord[ãa]o/i, r: [2, 3] },
-      { slot: 'offhand', off: ['weapon'], r: [2, 3] },
-      { slot: 'body', types: ['light'], r: [2, 3, 3] },
-      { slot: 'head', types: ['light'], r: [2, 3] },
-      { slot: 'legs', types: ['light'], r: [2, 3] },
-      { slot: 'accessory', only: /(Capa|Anel do Gatuno|Ferramentas|Botas Velozes)/, r: [2, 3, 3] },
-    ],
-  },
-  cleric: {
-    npc: 'Irmão Tomás Luzdourada', quote: '“Que Pelor guie a sua lâmina. Maças, escudos e a luz do sol — tudo abençoado.”', section: 'Maças, símbolos sagrados, escudos e armaduras abençoadas',
-    lines: [
-      { slot: 'mainhand', style: 'melee', only: /^(ma[çc]a|martelo|espada longa|montante)/i, r: [2, 3, 3] },
-      { slot: 'offhand', off: ['shield'], r: [2, 3] },
-      { slot: 'offhand', off: ['focus'], only: /^s[íi]mbolo/i, r: [2, 3] },
-      { slot: 'body', types: ['medium', 'heavy'], only: /(Couraça|Radiante|Cota|Loriga|Brunea|Peitoral)/, r: [2, 3, 3] },
-      { slot: 'head', types: ['medium', 'heavy'], only: /(Elmo do Sol|Elmo de Aço|Elmo Grande|Elmo de Placas)/, r: [2, 3] },
-      { slot: 'legs', types: ['medium', 'heavy'], only: /(Grevas do Sol|Grevas de Aço|Grevas de Placas|Grevas Segmentadas)/, r: [2, 3] },
-      { slot: 'accessory', only: /(Amuleto Sagrado|Vitalidade|Prote)/, r: [2, 3, 3] },
-    ],
-  },
-  druid: {
-    npc: 'Druida Ilvandra', quote: '“A floresta fornece. Foices de lua, totens e casca de carvalho antigo.”', section: 'Foices lunares, cajados druídicos, totens e cascas de carvalho',
-    lines: [
-      { slot: 'mainhand', style: 'magic', only: /^(foice|cajado dru|varinha de carv)/i, r: [2, 3, 3] },
-      { slot: 'offhand', off: ['focus'], only: /^totem/i, r: [2, 3] },
-      { slot: 'offhand', off: ['shield'], r: [2] },
-      { slot: 'body', types: ['medium'], only: /(Casca)/, r: [2, 3, 3] },
-      { slot: 'head', types: ['medium'], only: /(Coroa de Folhas)/, r: [2, 3] },
-      { slot: 'legs', types: ['medium'], only: /(Perneiras de Casca)/, r: [2, 3] },
-      { slot: 'accessory', only: /(Folha de Carvalho|Colar de Presas|Vitalidade)/, r: [2, 3, 3] },
-    ],
-  },
-  bard: {
-    npc: 'Menestrel Fenwick', quote: '“Nada como um bom alaúde e uma plateia! Compre um e eu componho uma balada sobre você.”', section: 'Alaúdes, harpas e trajes de menestrel',
-    lines: [
-      { slot: 'mainhand', style: 'magic', only: /^(alaúde|harpa)/i, r: [2, 3, 3, 3] },
-      { slot: 'body', types: ['light'], only: /(Menestrel|Trovador)/, r: [2, 3, 3] },
-      { slot: 'head', types: ['light'], only: /(Menestrel)/, r: [2, 3] },
-      { slot: 'legs', types: ['light'], only: /(Menestrel)/, r: [2, 3] },
-      { slot: 'accessory', only: /(Gema do Bardo|Botas Velozes|Capa Élfica)/, r: [2, 3, 3] },
-    ],
-  },
-  necro: {
-    npc: 'Mortícia, a Coveira', quote: '“Os mortos não reclamam do preço. Cetros de osso, grimórios dos mortos e mantos sepulcrais...”', section: 'Cetros de osso, livros dos mortos, crânios rituais e mantos sepulcrais',
-    lines: [
-      { slot: 'mainhand', style: 'magic', only: /^(cetro|cajado de ossos|livro dos mortos)/i, r: [2, 3, 3, 3] },
-      { slot: 'offhand', off: ['focus'], only: /^(cr[âa]nio|filact|tomo)/i, r: [2, 3, 3] },
-      { slot: 'body', types: ['cloth'], only: /(Necromante|Lich)/, r: [2, 3, 3] },
-      { slot: 'head', types: ['cloth'], only: /(Sepulcral|Lich)/, r: [2, 3] },
-      { slot: 'legs', types: ['cloth'], only: /(Sepulcrais|Lich)/, r: [2, 3] },
-      { slot: 'accessory', only: /(Anel Necromântico|Amuleto de Ossos)/, r: [2, 3, 3] },
-    ],
-  },
-  barbarian: {
-    npc: 'Grogna Punho-de-Pedra', quote: '“Machado grande, golpe grande! Peles de urso para quem não tem medo de arranhão.”', section: 'Machados, martelos e peles de urso',
-    lines: [
-      { slot: 'mainhand', style: 'melee', only: /^(machad|martelo|montante)/i, r: [2, 3, 3, 3] },
-      { slot: 'offhand', off: ['weapon'], only: /^machadinha/i, r: [2, 3] },
-      { slot: 'body', types: ['medium'], only: /(Peles de Urso)/, r: [2, 3, 3] },
-      { slot: 'head', types: ['medium'], only: /(Elmo de Chifres)/, r: [2, 3] },
-      { slot: 'legs', types: ['medium'], only: /(Calças de Pele)/, r: [2, 3] },
-      { slot: 'accessory', only: /(Colar de Presas|Fúria|Vitalidade)/, r: [2, 3, 3] },
     ],
   },
   general: {

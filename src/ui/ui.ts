@@ -494,7 +494,7 @@ function itemTip(i: Item): string {
 }
 
 function bestShopHint(i: Item): string {
-  const names: Record<string, string> = { smith: 'Ferreiro', sage: 'Sábio', archer: 'Arqueira', monk: 'Monge', rogue: 'Ladino', cleric: 'Clérigo', druid: 'Druida', bard: 'Bardo', necro: 'Necromante', barbarian: 'Bárbaro', general: 'Empório' };
+  const names: Record<string, string> = { smith: 'Ferreiro', sage: 'Sábio', general: 'Empório' };
   const hit = (Object.keys(names) as ShopId[]).filter((k) => buysItem(k, i));
   return hit.length ? `<br><span style="color:#ffd23f">⭐ Paga mais: ${hit.map((k) => names[k]).join(', ')}</span>` : '';
 }
@@ -625,7 +625,7 @@ function openNpc(id: string) {
   curWin = 'npc'; selItem = null;
   if (id === 'captain') npcCaptain();
   else if (id === 'merchant') shopWindow('general');
-  else if (['smith', 'archer', 'monk', 'rogue', 'cleric', 'druid', 'bard', 'necro', 'barbarian'].includes(id)) shopWindow(id as ShopId);
+  else if (id === 'smith') shopWindow(id as ShopId);
   else if (id === 'innkeeper') npcInnkeeper();
   else if (id === 'priest') npcPriest();
   else if (id === 'guard') npcGuard();

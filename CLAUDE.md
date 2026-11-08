@@ -15,15 +15,12 @@ Elmo · Corpo · Pernas · Mão Direita · Mão Esquerda · Acessório (`Slot` e
 - Mão Esquerda: **escudo** (+2 CA; só classes com proficiência: Bárbaro, Clérigo, Druida, Guerreiro, Paladino, Patrulheiro), **arma leve** (ataque extra sem modificador de atributo; classes corpo a corpo, exceto Monge) ou **foco** (Símbolo Sagrado, Orbe, Grimório, Totem; conjuradores, Clérigo e Paladino).
 - Acessório: anéis, amuletos, botas mágicas.
 
-## Lojas especializadas (independentes da classe do comprador)
-Cada loja vende o que o seu ofício vende (`SHOP_INFO` / `genShopStock` em `src/data/items.ts`); o jogador só vê o aviso "Sua classe não pode usar" quando o item não serve.
-- **Ferreiro (Forja)**: espadas, machados, maças, martelos, armaduras leves/médias/pesadas, elmos, grevas, escudos, acessórios comuns.
-- **Sábio (Torre)**: cajados, varinhas, orbes, grimórios, tomos, vestes/chapéus/calças de tecido, acessórios mágicos.
-- **Arqueira (Arco do Falcão)**: arcos, bestas, armaduras leves/médias, aljavas, flechas, braçais.
-- **Monge (Mosteiro do Punho Sereno)**: manoplas, bastão, kama, vestes de monge, acessórios de ki.
-- **Ladino (Adaga Silenciosa)**: adagas, rapieiras, couro leve, ferramentas de ladrão.
+## Lojas (só três ofícios)
+Decisão do projeto: **não há lojas de classe**. Restam apenas (`SHOP_INFO` / `genShopStock` em `src/data/items.ts`, `ShopId = 'smith' | 'sage' | 'general'`):
+- **Ferreiro (Forja)**: espadas, machados, maças, martelos, arcos e bestas, armaduras leves/médias/pesadas, elmos, grevas, escudos, acessórios comuns; botão da **Forja** (criação com materiais).
+- **Sábio (Torre)**: cajados, varinhas, orbes, grimórios, tomos, vestes/chapéus/calças de tecido, acessórios mágicos; mesa de encantamento.
 - **Empório**: poções e amuletos/anéis.
-Novas lojas: adicionar `BuildingKind` em `town.ts`, emblema em `buildings.ts`, interior em `interiors.ts`, NPC em `NPC_SPEC` e cor em `mapview.ts`.
+O jogador só vê o aviso "Sua classe não pode usar" quando o item não serve. Edifícios sem loja (taverna, quartel, igreja/capela, posto) continuam. Para uma nova loja: `BuildingKind` em `town.ts`, emblema em `buildings.ts`, interior em `interiors.ts`, NPC em `NPC_SPEC` e cor em `mapview.ts`.
 
 ## Menu e personagens
 - **Tela inicial temática** (`showMenu` em `ui.ts`, CSS `.tscreen` em `index.html`): céu noturno com lua, dragão voando, castelo, brasas, d20 girando, título serifado dourado e fichas de personagem em pergaminho (selo numerado). Só CSS/SVG, sem arquivos.
@@ -43,10 +40,10 @@ Novas lojas: adicionar `BuildingKind` em `town.ts`, emblema em `buildings.ts`, i
 
 ## Armas por classe (uma mão e duas mãos)
 Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WEAPONS` em `src/data/items.ts`):
-- **Corpo a corpo** (Bárbaro, Clérigo, Guerreiro, Paladino, Ladino): espadas/maças/machadinhas (1 mão) e Montante, Machado Grande e **Bordão** (2 mãos, ladino compra Bordão na Adaga Silenciosa).
+- **Corpo a corpo** (Bárbaro, Clérigo, Guerreiro, Paladino, Ladino): espadas/maças/machadinhas (1 mão) e Montante, Machado Grande e **Bordão** (2 mãos, armas de qualquer estilo vêm da Forja, do Ferreiro e de drops).
 - **Monge**: manoplas/bastão/kama (1 mão) + **Bordão de Carvalho / Ferrado / do Mestre Ki** (2 mãos; o bordão é arma de monge no SRD).
-- **Patrulheiro**: arcos e bestas (2 mãos) + **Besta de Pulso** (1 mão; besta presa ao antebraço, braçadeira que atira): Besta de Pulso, Rúnica, Élfica, Braçadeira do Caçador de Dragões. Vendida no Arco do Falcão.
-- **Conjuradores** (Bardo, Bruxo, Druida, Feiticeiro, Mago): cajados (2 mãos) + **varinhas e livros** (1 mão): Varinha de Carvalho/Cristal/Rúnica/do Arquimago, Livro de Feitiços, Grimório de Guerra, Tomo Arcano, Livro do Arquimago. Vendidos pelo Sábio.
+- **Patrulheiro**: arcos e bestas (2 mãos) + **Besta de Pulso** (1 mão; besta presa ao antebraço, braçadeira que atira): Besta de Pulso, Rúnica, Élfica, Braçadeira do Caçador de Dragões. Vem da Forja, do Ferreiro e de drops.
+- **Conjuradores** (Bardo, Bruxo, Druida, Feiticeiro, Mago): cajados (2 mãos) + **varinhas e livros** (1 mão): Varinha de Carvalho/Cristal/Rúnica/do Arquimago, Livro de Feitiços, Grimório de Guerra, Tomo Arcano, Livro do Arquimago. Vendidos pelo Sábio e criados na Forja.
 - `isTwoHanded()` reconhece arco, besta (exceto "Besta de Pulso"), cajado, bordão, Montante e Machado Grande.
 
 ## Sistemas da grande atualização (classes, árvores, conjuntos, encantos, economia)
@@ -59,8 +56,8 @@ Toda classe tem pelo menos uma arma de **uma mão** e uma de **duas mãos** (`WE
 - **Materiais e Forja** (`src/data/materials.ts`, `PlayerState.mats`): ferro, madeira, pedra, ouro e diamante caem dos monstros (`rollMats`, chefes/elites dão mais; mostrados no Inventário). Na **Forja** (botão na loja da Ferreira Durga, `forgeWindow` em `ui.ts`) cria-se qualquer arma, armadura de corpo, elmo, grevas ou escudo já disponível pelo nível, em qualquer raridade (`craftables`/`craftItem`/`craftCost`): corpo de ferro (metal) ou madeira, pedra, e ouro/diamante nas raridades altas, mais ouro. Itens novos em `items.ts` entram sozinhos na forja; rode `tools/itemcheck.ts`.
 - **Economia** (`src/data/economy.ts`): lojista especialista paga 1,6+0,12×raridade do valor (loja errada 0,8); saturação −5% por venda (recupera em 40 s); Carisma melhora vendas e descontos; bolsa cheia converte o excedente em ouro.
 - **VFX por classe** (`src/scenes/vfx.ts`): flecha, virote, orbe, fogo, raio, nota, espinho, radiante, crânio, prisma; golpes (corte, machado, estocada, soco, dança, sagrado, arcano).
-- **Mundo**: 400×300 tiles, vila com raio 36 e anel externo de lojas de classe: Ordem do Sol Nascente (Clérigo), Círculo do Carvalho (Druida), Salão da Canção (Bardo), Cripta Sombria (Necromante), Salão do Machado Vermelho (Bárbaro). Terreno em *chunks* de 40 tiles e árvores instanciadas por chunk (frustum culling). Save v3 reposiciona o jogador na vila.
-- **Vilas dos biomas** (`VILLAGES` em `src/chapters/town.ts`): a cidade principal (Pouso do Viajante) fica nos **Campos** e é onde se começa. Cada outro bioma tem sua vila murada (raio 17, 4 portões, fonte, 4 edifícios), zona segura própria: **Passo da Clareira** (Floresta; taverna, arqueiro, druida, armazém), **Vigília dos Sinos** (Cripta; taverna, clérigo, necromante, posto de guarda), **Forte Cinzaferro** (Colinas dos Orcs; taverna, ferreiro, bárbaro, quartel), **Último Refúgio** (Covil do Ogro; taverna, sábio, capela com curandeira, empório). Zonas seguras usam `ZoneDef.safe` (não `=== 'town'`). Cada vila fica na estrada em cruz que corta o mapa.
+- **Mundo**: 400×300 tiles, vila com raio 36 (as antigas lojas de classe foram removidas; só Forja, Torre do Sábio, Empório, taverna, quartel e catedral). Terreno em *chunks* de 40 tiles e árvores instanciadas por chunk (frustum culling). Save v3 reposiciona o jogador na vila.
+- **Vilas dos biomas** (`VILLAGES` em `src/chapters/town.ts`): a cidade principal (Pouso do Viajante) fica nos **Campos** e é onde se começa. Cada outro bioma tem sua vila murada (raio 17, 4 portões, fonte, 4 edifícios), zona segura própria: **Passo da Clareira** (Floresta; taverna, forja, torre do sábio, armazém), **Vigília dos Sinos** (Cripta; taverna, capela, torre do sábio, posto de guarda), **Forte Cinzaferro** (Colinas dos Orcs; taverna, ferreiro, empório, quartel), **Último Refúgio** (Covil do Ogro; taverna, sábio, capela com curandeira, empório). Zonas seguras usam `ZoneDef.safe` (não `=== 'town'`). Cada vila fica na estrada em cruz que corta o mapa.
 
 ## README e GitHub Pages
 - O topo do `README.md` deve **sempre** conter o link do jogo: https://jeffersonrmoraes.github.io/aldoria/ (permanente; nunca remover ao reescrever o README).

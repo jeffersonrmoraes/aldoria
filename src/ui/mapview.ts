@@ -393,7 +393,7 @@ function drawCityLayer(g: CanvasRenderingContext2D, v: View, tiles: number[][]) 
     g.restore();
   }
   // edifícios principais
-  const ROOF: Record<string, string> = { tavern: '#a5502f', forge: '#6e6e7c', church: '#46639f', shop: '#3f8a68', barracks: '#355a9c', tower: '#4a3d8a', archery: '#4f7a3a', monk: '#c8932a', rogue: '#4a4560', cleric: '#d4a017', druid: '#3f7a3a', bard: '#a83a6a', necro: '#2a1f3a', barbarian: '#6a2a1a' };
+  const ROOF: Record<string, string> = { tavern: '#a5502f', forge: '#6e6e7c', church: '#46639f', shop: '#3f8a68', barracks: '#355a9c', tower: '#4a3d8a' };
   for (const b of BUILDINGS.filter((q) => townOf(q) === 'pouso')) {
     const x = px(v, b.x0), y = py(v, b.y0), w = b.w * S, h = b.h * S;
     g.save(); g.strokeStyle = INK; g.lineWidth = 1.4; g.lineJoin = 'round';

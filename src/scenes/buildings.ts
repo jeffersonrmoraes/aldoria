@@ -71,14 +71,6 @@ export function buildBuilding(b: BuildingDef, groundY: number): THREE.Group {
   if (b.kind === 'church') { wallC = '#f1ecdf'; roofC = '#3d5a9a'; wallH = 2.8; }
   if (b.kind === 'shop') { wallC = '#e4c98c'; roofC = '#2f7a5a'; wallH = 2.0; }
   if (b.kind === 'barracks') { wallC = '#a9a39a'; roofC = '#2a4a8c'; wallH = 2.1; }
-  if (b.kind === 'archery') { wallC = '#cdb88a'; roofC = '#4f7a3a'; wallH = 2.0; }
-  if (b.kind === 'monk') { wallC = '#efe3c2'; roofC = '#c8932a'; wallH = 2.0; }
-  if (b.kind === 'rogue') { wallC = '#6f6a7a'; roofC = '#3a3550'; wallH = 2.0; }
-  if (b.kind === 'cleric') { wallC = '#f4ecd0'; roofC = '#d4a017'; wallH = 2.2; }
-  if (b.kind === 'druid') { wallC = '#8a7a56'; roofC = '#3f7a3a'; wallH = 1.9; }
-  if (b.kind === 'bard') { wallC = '#e0b0c0'; roofC = '#a83a6a'; wallH = 2.0; }
-  if (b.kind === 'necro') { wallC = '#4a4a56'; roofC = '#2a1f3a'; wallH = 2.2; }
-  if (b.kind === 'barbarian') { wallC = '#8a6a4a'; roofC = '#6a2a1a'; wallH = 2.0; }
   const wallM = M(wallC), roofM = M(roofC);
 
   if (b.kind === 'tower') {
@@ -197,52 +189,6 @@ export function buildBuilding(b: BuildingDef, groundY: number): THREE.Group {
     em.position.set(-hw + 0.9, ey - 0.1, ez - 0.02);
     g.add(em); post(em);
     for (const sx of [-1, 1]) { g.add(box(0.05, 1.8, 0.05, wood, sx * (hw - 0.4), 0, front + 0.45)); g.add(box(0.5, 0.8, 0.04, M(sx > 0 ? '#2a4a8c' : '#c0392b'), sx * (hw - 0.4) + 0.27, 0.9, front + 0.45)); }
-  }
-  if (b.kind === 'archery') {
-    // alvo de tiro ao alvo com flecha cravada + feno
-    em.add(box(1.5, 1.5, 0.1, dark, 0, 0, 0));
-    const rings: [number, string][] = [[0.6, '#f2ead0'], [0.46, '#d63a2e'], [0.32, '#f2ead0'], [0.18, '#d63a2e']];
-    rings.forEach(([r, c], i) => em.add(mesh(new THREE.CylinderGeometry(r, r, 0.04, 20).rotateX(Math.PI / 2), M(c), 0, 0.72, 0.08 + i * 0.012)));
-    em.add(box(0.05, 0.05, 0.7, M('#8a5a2e'), 0.1, 0.8, 0.4));
-    em.position.set(-hw + 1.05, ey - 0.4, ez - 0.02);
-    g.add(em); post(em);
-    g.add(mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.55, 12).rotateZ(Math.PI / 2), M('#d8b24a'), hw - 0.7, 0.28, front + 0.55));
-    g.add(mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.55, 12).rotateZ(Math.PI / 2), M('#c9a23a'), hw - 1.5, 0.28, front + 0.6));
-  } else if (b.kind === 'monk') {
-    // disco de ki (vermelho e dourado) e tapete de treino
-    em.add(box(1.4, 1.4, 0.1, dark, 0, 0, 0));
-    em.add(mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.06, 24).rotateX(Math.PI / 2), M('#a82a22'), 0, 0.68, 0.1));
-    em.add(mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.08, 24).rotateX(Math.PI / 2), M('#f5d56a', '#a0760a'), 0, 0.68, 0.12));
-    em.add(mesh(new THREE.SphereGeometry(0.16, 10, 8), M('#2a1a10'), 0, 0.68, 0.18));
-    em.position.set(-hw + 1.0, ey - 0.4, ez - 0.02);
-    g.add(em); post(em);
-    g.add(box(1.6, 0.04, 1.0, M('#a82a22'), hw - 1.3, 0, front + 0.7));
-    g.add(mesh(new THREE.CylinderGeometry(0.12, 0.14, 1.1, 8), M('#8a5a2e'), hw - 0.9, 0.55, front + 0.55), mesh(new THREE.SphereGeometry(0.2, 8, 6), M('#d9b98a'), hw - 0.9, 1.25, front + 0.55));
-  } else if (b.kind === 'rogue') {
-    // adagas cruzadas e bolsa de moedas
-    em.add(box(1.4, 1.4, 0.1, dark, 0, 0, 0));
-    const s1 = sword(), s2 = sword();
-    s1.scale.setScalar(0.75); s2.scale.setScalar(0.75);
-    s1.position.set(0, 0.5, 0.12); s1.rotation.z = 0.6; s2.position.set(0, 0.5, 0.14); s2.rotation.z = -0.6;
-    em.add(s1, s2, mesh(new THREE.SphereGeometry(0.2, 10, 8), M('#b8863a'), 0, 0.12, 0.2));
-    em.position.set(-hw + 1.0, ey - 0.4, ez - 0.02);
-    g.add(em); post(em);
-    g.add(box(0.7, 0.7, 0.7, M('#4a3a2a'), hw - 0.7, 0, front + 0.55), box(0.6, 0.6, 0.6, M('#3a2e22'), hw - 1.4, 0, front + 0.6));
-  } else if (b.kind === 'cleric' || b.kind === 'druid' || b.kind === 'bard' || b.kind === 'necro' || b.kind === 'barbarian') {
-    // emblema da ordem: disco com símbolo + decoração junto à porta
-    const col = { cleric: '#f5d56a', druid: '#58b060', bard: '#e060a0', necro: '#7affb0', barbarian: '#c0392b' }[b.kind];
-    em.add(box(1.4, 1.4, 0.1, dark, 0, 0, 0));
-    em.add(mesh(new THREE.CylinderGeometry(0.58, 0.58, 0.06, 24).rotateX(Math.PI / 2), M(col, col), 0, 0.68, 0.1));
-    em.add(mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.08, 24).rotateX(Math.PI / 2), M('#1a1020'), 0, 0.68, 0.12));
-    if (b.kind === 'necro') em.add(mesh(new THREE.SphereGeometry(0.2, 10, 8), M('#e8e4d0'), 0, 0.68, 0.18));
-    else if (b.kind === 'barbarian') { em.add(box(0.1, 0.7, 0.1, M('#8a5a2e'), 0, 0.68, 0.18), box(0.5, 0.25, 0.08, M('#b8b8c8'), 0.15, 0.95, 0.18)); }
-    else em.add(box(0.1, 0.5, 0.1, M(col), 0, 0.68, 0.18), box(0.5, 0.1, 0.1, M(col), 0, 0.72, 0.18));
-    em.position.set(-hw + 1.0, ey - 0.4, ez - 0.02);
-    g.add(em); post(em);
-    if (b.kind === 'druid') { g.add(mesh(new THREE.CylinderGeometry(0.18, 0.24, 1.0, 8), M('#5a3a1e'), hw - 0.8, 0.5, front + 0.6), mesh(new THREE.SphereGeometry(0.7, 10, 8), M('#3f8a3a'), hw - 0.8, 1.4, front + 0.6)); }
-    else if (b.kind === 'necro') { for (const x of [hw - 0.7, hw - 1.4]) g.add(box(0.4, 0.8, 0.12, M('#6a6a78'), x, 0, front + 0.55)); }
-    else if (b.kind === 'barbarian') { g.add(box(0.1, 1.5, 0.1, wood, hw - 0.8, 0, front + 0.6), mesh(new THREE.SphereGeometry(0.25, 8, 6), M('#e8e4d0'), hw - 0.8, 1.6, front + 0.6)); }
-    else g.add(box(0.7, 0.5, 0.7, M(col), hw - 0.7, 0, front + 0.55));
   }
   void em;
 

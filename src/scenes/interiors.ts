@@ -91,21 +91,13 @@ class B {
   }
 }
 
-const DIM: Record<string, [number, number]> = { tavern: [14, 10], forge: [12, 9], church: [12, 20], shop: [12, 9], barracks: [12, 9], tower: [10, 10], archery: [12, 9], monk: [12, 9], rogue: [12, 9], cleric: [12, 9], druid: [12, 9], bard: [12, 9], necro: [12, 9], barbarian: [12, 9] };
+const DIM: Record<string, [number, number]> = { tavern: [14, 10], forge: [12, 9], church: [12, 20], shop: [12, 9], barracks: [12, 9], tower: [10, 10] };
 const THEME: Record<string, { floor: string; wall: string; trim: string; env: [string, string, number] }> = {
   tavern: { floor: '#8a5a32', wall: '#b88a5a', trim: '#4a2d14', env: ['#1d1410', '#1d1410', 0.7] },
   forge: { floor: '#6b6b74', wall: '#8a8a96', trim: '#2f2f3a', env: ['#14110f', '#14110f', 0.66] },
   church: { floor: '#c9c4ba', wall: '#efe9dc', trim: '#c9a64a', env: ['#171a2a', '#171a2a', 0.78] },
   shop: { floor: '#9a6b3c', wall: '#d9c18a', trim: '#2f7a5a', env: ['#1c1510', '#1c1510', 0.72] },
   barracks: { floor: '#857560', wall: '#a39d93', trim: '#2a4a8c', env: ['#16140f', '#16140f', 0.7] },
-  archery: { floor: '#8a6a3c', wall: '#cdb88a', trim: '#4f7a3a', env: ['#171a10', '#171a10', 0.72] },
-  monk: { floor: '#b89a5a', wall: '#efe3c2', trim: '#c8932a', env: ['#1c1710', '#1c1710', 0.74] },
-  rogue: { floor: '#4a4658', wall: '#6f6a7a', trim: '#3a3550', env: ['#0e0d16', '#0e0d16', 0.6] },
-  cleric: { floor: '#cfc6a0', wall: '#f4ecd0', trim: '#d4a017', env: ['#1c1a14', '#1c1a14', 0.8] },
-  druid: { floor: '#5a6a3a', wall: '#8a7a56', trim: '#3f7a3a', env: ['#101a10', '#101a10', 0.72] },
-  bard: { floor: '#9a5a4a', wall: '#e0b0c0', trim: '#a83a6a', env: ['#1c1218', '#1c1218', 0.74] },
-  necro: { floor: '#3a3a46', wall: '#4a4a56', trim: '#2a8a5a', env: ['#0a0e0e', '#0a0e0e', 0.55] },
-  barbarian: { floor: '#6a4a2e', wall: '#8a6a4a', trim: '#6a2a1a', env: ['#1a120c', '#1a120c', 0.7] },
   tower: { floor: '#4a3f6a', wall: '#cfc6e6', trim: '#4a3d8a', env: ['#120e24', '#120e24', 0.68] },
 };
 
@@ -208,70 +200,6 @@ export function buildInterior(def: BuildingDef): InteriorView {
     b.box(1.2, H - 3.0, 1.5, 0.9, 0.5, '#5a4a3a', { solid: true });                      // baú
     b.light(dx, 2.6, 3.5);
     npcs.push({ id: 'captain', name: def.npcs[0].name, x: dx + 0.5, y: 4.6, face: 0 });
-  } else if (def.kind === 'archery') {
-    b.box(1.0, 1.0, 10, 0.5, 1.9, '#6b4423', { solid: true });                          // parede de arcos
-    for (let i = 0; i < 6; i++) { const bow = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.04, 6, 14, Math.PI), M('#8a5a2e')); bow.position.set(1.6 + i * 1.5, 1.2, 1.3); bow.rotation.z = -Math.PI / 2; b.group.add(bow); b.box(1.55 + i * 1.5, 1.18, 0.02, 0.02, 0.8, '#e8e0c8', { y: 0.8 }); }
-    b.box(3.0, 5.0, 6, 1, 1.0, '#7a4a22', { solid: true });                              // balcão
-    b.box(2.9, 4.95, 6.2, 1.1, 0.08, '#5a3520', { y: 1.0 });
-    for (let i = 0; i < 5; i++) b.cyl(3.6 + i * 1.2, 5.5, 0.12, 0.5, '#8a5a2e', { y: 1.08 });                // aljavas
-    for (let i = 0; i < 4; i++) { b.cyl(W - 2.0, 2.4 + i * 0.7, 0.28, 0.55, '#d8b24a', { solid: true }); }     // fardos de feno
-    for (let k = 0; k < 3; k++) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 18).rotateX(Math.PI / 2), M(k % 2 ? '#d63a2e' : '#f2ead0')); t.position.set(1.4 + k * 0.01, 1.0 + k * 0.01, 2.6 + k * 1.3); t.rotation.y = Math.PI / 2; b.group.add(t); }
-    b.light(dx, 2.6, 3.5);
-    npcs.push({ id: 'archer', name: def.npcs[0].name, x: dx + 0.5, y: 3.9, face: 0 });
-  } else if (def.kind === 'monk') {
-    b.plane(2.5, 2.2, W - 5, 4.2, '#a82a22', 0.03);                                       // tatame
-    b.plane(2.9, 2.6, W - 5.8, 3.4, '#d9b98a', 0.035);
-    for (const x of [2.2, W - 2.8]) { b.cyl(x + 0.3, 3.0, 0.14, 1.2, '#8a5a2e', { solid: true }); b.sph(x + 0.3, 1.45, 3.0, 0.24, '#d9b98a'); b.box(x - 0.2, 2.95, 1.0, 0.1, 0.1, '#8a5a2e', { y: 1.0 }); } // bonecos de treino
-    b.cyl(W - 2.2, 1.6, 0.6, 0.06, '#d4a017', { y: 1.1, e: '#7a5a00' }); b.box(W - 3.0, 1.45, 1.6, 0.1, 1.6, '#5a3520', { solid: true }); // gongo
-    b.box(1.0, 0.8, 0.5, 4, 1.3, '#5a3520', { solid: true });                              // prateleira de bastões
-    for (let i = 0; i < 4; i++) b.box(1.15 + (i % 2) * 0.22, 0.9 + i * 0.9, 0.06, 0.7, 0.06, '#8a5a2e', { y: 0.9 });
-    b.box(3.0, 6.0, 6, 0.9, 0.9, '#7a4a22', { solid: true });                              // balcão baixo
-    for (let i = 0; i < 3; i++) b.cyl(3.6 + i * 1.6, 6.4, 0.07, 0.35, '#a82a22', { y: 0.9 });
-    b.light(dx, 2.6, 4.0);
-    npcs.push({ id: 'monk', name: def.npcs[0].name, x: dx + 0.5, y: 4.8, face: 0 });
-  } else if (def.kind === 'rogue') {
-    b.box(1.0, 1.0, 10, 0.5, 1.9, '#2e2a3a', { solid: true });
-    for (let i = 0; i < 8; i++) b.swordFlat(1.5 + i * 1.1, 1.2 + (i % 2) * 0.3, 1.3, (i % 3 - 1) * 0.2);
-    b.box(3.0, 5.0, 6, 1, 1.0, '#3a3248', { solid: true });                                // balcão escuro
-    b.box(2.9, 4.95, 6.2, 1.1, 0.08, '#1e1a28', { y: 1.0 });
-    for (let i = 0; i < 4; i++) b.swordFlat(3.6 + i * 1.5, 1.08, 5.5, Math.PI / 2);
-    b.sph(8.0, 1.2, 5.5, 0.16, '#ffd23f', '#a07a00'); b.cyl(3.3, 5.5, 0.12, 0.12, '#b8863a', { y: 1.08 });
-    for (const [x, z] of [[W - 2.4, 2.4], [W - 2.4, 3.4], [1.2, 3.4], [1.2, 4.4]] as [number, number][]) b.box(x, z, 0.8, 0.8, 0.8, '#4a3a2a', { solid: true });
-    b.barrel(W - 1.8, 4.6);
-    b.light(dx, 2.4, 3.5);
-    npcs.push({ id: 'rogue', name: def.npcs[0].name, x: dx + 0.5, y: 3.9, face: 0 });
-  } else if (['cleric', 'druid', 'bard', 'necro', 'barbarian'].includes(def.kind)) {
-    const k = def.kind;
-    b.box(1.0, 1.0, 10, 0.5, 1.9, k === 'necro' ? '#2e2e3a' : '#5a3520', { solid: true });          // estante do fundo
-    b.box(3.0, 5.0, 6, 1, 1.0, k === 'necro' ? '#3a3a48' : '#7a4a22', { solid: true });              // balcão
-    b.box(2.9, 4.95, 6.2, 1.1, 0.08, '#1e1a28', { y: 1.0 });
-    if (k === 'cleric') {
-      for (let i = 0; i < 6; i++) b.sph(1.6 + i * 1.4, 1.3, 1.3, 0.16, '#f5d56a', '#a0760a');
-      b.cyl(dx, 2.0, 0.35, 0.9, '#d9d4c0', { solid: true });                                       // altar
-      b.plane(dx - 1.2, 1.6, 2.4, 0.8, '#d4a017', 0.03);
-      for (const x of [1.5, W - 2.0]) b.cyl(x, 6.8, 0.15, 1.4, '#d4a017', { solid: true });
-    } else if (k === 'druid') {
-      for (let i = 0; i < 5; i++) { b.cyl(1.6 + i * 1.7, 1.4, 0.3, 0.5, '#6b4423', { y: 0.2 }); b.sph(1.6 + i * 1.7, 1.0, 1.4, 0.3, '#58b060'); }
-      b.cyl(W - 2.0, 6.0, 0.5, 1.8, '#5a3a1e', { solid: true }); b.sph(W - 2.0, 2.3, 6.0, 0.9, '#3f8a3a');
-      b.plane(2.0, 6.5, 3, 2, '#4a8a3a', 0.03);
-    } else if (k === 'bard') {
-      for (let i = 0; i < 5; i++) { b.cyl(1.6 + i * 1.7, 1.3, 0.22, 0.9, '#a05a2a', { y: 0.5 }); }
-      b.plane(2.5, 6.5, W - 5, 2.2, '#a83a6a', 0.03);                                                // palco
-      b.cyl(W - 2.2, 6.5, 0.4, 0.7, '#d4a017', { solid: true });
-      b.barrel(W - 1.8, 2.6);
-    } else if (k === 'necro') {
-      for (let i = 0; i < 6; i++) b.sph(1.5 + i * 1.5, 1.3, 1.3, 0.2, '#e8e4d0');                   // crânios
-      b.box(dx - 1, 1.8, 2, 1.4, 0.7, '#4a4a56', { solid: true });                                 // sarcófago
-      b.sph(dx, 1.2, 2.5, 0.12, '#7affb0', '#2aa060');
-      for (const x of [1.4, W - 1.8]) b.cyl(x, 6.8, 0.18, 1.2, '#2a8a5a', { y: 0.1, e: '#1a6a3a' });
-    } else {
-      for (let i = 0; i < 6; i++) b.swordFlat(1.4 + i * 1.3, 1.2 + (i % 2) * 0.3, 1.3, (i % 3 - 1) * 0.3);
-      b.cyl(W - 2.2, 6.0, 0.7, 0.9, '#5a3a1e', { solid: true });                                   // tambor de guerra
-      b.barrel(1.4, 6.8); b.barrel(2.2, 6.9);
-      b.plane(2.0, 6.5, 4, 2, '#6a2a1a', 0.03);
-    }
-    b.light(dx, 2.6, 3.5);
-    npcs.push({ id: k, name: def.npcs[0].name, x: dx + 0.5, y: 3.9, face: 0 });
   } else {
     // torre do sábio
     for (let i = 0; i < 8; i++) { b.box(1 + i * 1.0, 1, 0.9, 0.6, 2.2, '#5a3520', { solid: i < 8 }); }

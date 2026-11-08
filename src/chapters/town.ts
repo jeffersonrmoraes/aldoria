@@ -1,6 +1,6 @@
 // Pouso do Viajante: edifícios com interior. Coordenadas em tiles relativas ao centro da vila.
 import { CX, CY } from './mapdims';
-export type BuildingKind = 'tavern' | 'forge' | 'church' | 'shop' | 'barracks' | 'tower' | 'archery' | 'monk' | 'rogue' | 'cleric' | 'druid' | 'bard' | 'necro' | 'barbarian';
+export type BuildingKind = 'tavern' | 'forge' | 'church' | 'shop' | 'barracks' | 'tower';
 export interface BuildingNpc { id: string; name: string }
 export interface BuildingDef {
   id: string; name: string; kind: BuildingKind;
@@ -20,16 +20,7 @@ export const BUILDINGS: BuildingDef[] = [
   { id: 'taverna', name: 'Taverna do Dragão Dourado', kind: 'tavern', x0: CX - 23, y0: CY - 10, w: 7, h: 7, facing: 'E', npcs: [{ id: 'innkeeper', name: 'Taverneiro Bram' }] },
   { id: 'quartel', name: 'Quartel da Guarda', kind: 'barracks', x0: CX + 17, y0: CY - 9, w: 7, h: 5, facing: 'W', npcs: [{ id: 'captain', name: 'Capitão Brann' }] },
   { id: 'emporio', name: 'Empório da Sildra', kind: 'shop', x0: CX - 23, y0: CY + 4, w: 7, h: 7, facing: 'E', npcs: [{ id: 'merchant', name: 'Mercadora Sildra' }] },
-  { id: 'arqueiro', name: 'Arco do Falcão', kind: 'archery', x0: CX + 17, y0: CY + 3, w: 7, h: 5, facing: 'W', npcs: [{ id: 'archer', name: 'Arqueira Lyra Folhaverde' }] },
-  { id: 'monge', name: 'Mosteiro do Punho Sereno', kind: 'monk', x0: CX + 6, y0: CY + 17, w: 6, h: 5, facing: 'N', npcs: [{ id: 'monk', name: 'Mestre Kaelen' }] },
-  { id: 'ladino', name: 'Adaga Silenciosa', kind: 'rogue', x0: CX - 12, y0: CY + 17, w: 6, h: 5, facing: 'N', npcs: [{ id: 'rogue', name: 'Nyx Mãos-Leves' }] },
-  // anel externo (cidade ampliada)
-  { id: 'ordem', name: 'Ordem do Sol Nascente', kind: 'cleric', x0: CX - 20, y0: CY - 27, w: 6, h: 6, facing: 'S', npcs: [{ id: 'cleric', name: 'Irmão Tomás Luzdourada' }] },
-  { id: 'circulo', name: 'Círculo do Carvalho', kind: 'druid', x0: CX + 14, y0: CY - 27, w: 6, h: 6, facing: 'S', npcs: [{ id: 'druid', name: 'Druida Ilvandra' }] },
-  { id: 'salao', name: 'Salão da Canção', kind: 'bard', x0: CX + 26, y0: CY - 13, w: 5, h: 6, facing: 'W', npcs: [{ id: 'bard', name: 'Menestrel Fenwick' }] },
-  { id: 'cripta', name: 'Cripta Sombria', kind: 'necro', x0: CX - 31, y0: CY + 8, w: 5, h: 6, facing: 'E', npcs: [{ id: 'necro', name: 'Mortícia, a Coveira' }] },
-  { id: 'machado', name: 'Salão do Machado Vermelho', kind: 'barbarian', x0: CX + 14, y0: CY + 23, w: 6, h: 5, facing: 'N', npcs: [{ id: 'barbarian', name: 'Grogna Punho-de-Pedra' }] },
-];
+  ];
 // ---------------------------------------------------------------- vilas dos biomas
 export interface VillageDef { id: string; zone: string; name: string; biome: string; cx: number; cy: number; r: number }
 export const VILLAGE_R = 17;
@@ -46,20 +37,20 @@ const QUAD: { x0: number; y0: number; facing: 'S' | 'N' }[] = [
 const VILLAGE_BUILDINGS: Record<string, VB[]> = {
   clareira: [
     ['clareira-taverna', 'Hospedaria do Corvo Verde', 'tavern', 'innkeeper', 'Taverneira Maelis'],
-    ['clareira-arco', 'Pavilhão dos Rastreadores', 'archery', 'archer', 'Rastreadora Sylwen'],
-    ['clareira-circulo', 'Santuário da Clareira', 'druid', 'druid', 'Druida Faelan'],
+    ['clareira-forja', 'Forja do Lenhador', 'forge', 'smith', 'Ferreiro Brenn'],
+    ['clareira-torre', 'Torre da Clareira', 'tower', 'sage', 'Sábio Faelan'],
     ['clareira-armazem', 'Armazém do Lenhador', 'shop', 'merchant', 'Mercador Torben'],
   ],
   sinos: [
     ['sinos-taverna', 'Taverna do Último Suspiro', 'tavern', 'innkeeper', 'Taverneiro Osric'],
-    ['sinos-capela', 'Capela da Luz Perdida', 'cleric', 'cleric', 'Irmã Calanthe'],
-    ['sinos-ossuario', 'Ossuário do Coveiro', 'necro', 'necro', 'Coveiro Vael'],
+    ['sinos-capela', 'Capela da Luz Perdida', 'church', 'priest', 'Padre Calanthe'],
+    ['sinos-torre', 'Torre do Coveiro', 'tower', 'sage', 'Sábio Vael'],
     ['sinos-posto', 'Posto dos Caça-Mortos', 'barracks', 'captain', 'Sentinela Marwen'],
   ],
   cinzaferro: [
     ['cinza-taverna', 'Taverna do Machado Partido', 'tavern', 'innkeeper', 'Taverneira Hilde'],
     ['cinza-forja', 'Forja Cinzaferro', 'forge', 'smith', 'Ferreiro Dagan'],
-    ['cinza-salao', 'Salão do Punho Rubro', 'barbarian', 'barbarian', 'Thrukk Quebra-Escudo'],
+    ['cinza-emporio', 'Empório do Forte', 'shop', 'merchant', 'Mercador Thrukk'],
     ['cinza-quartel', 'Quartel de Cinzaferro', 'barracks', 'captain', 'Capitã Ruvia'],
   ],
   refugio: [

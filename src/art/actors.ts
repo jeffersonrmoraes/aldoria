@@ -376,18 +376,12 @@ export class ProcCreature implements Visual {
 
 // ---------- aparência dos jogadores ----------
 export const CLASS_LOOK: Record<string, ModelSpec> = {
-  barbarian: { model: 'Barbarian', show: ['2H_Axe'], melee: '2H_Melee_Attack_Chop' },
   fighter: { model: 'Knight', show: ['1H_Sword', 'Round_Shield'] },
   paladin: { model: 'Knight', show: ['1H_Sword', 'Badge_Shield'], cape: '#f2c84a' },
-  cleric: { model: 'Mage', show: ['1H_Wand', 'Spellbook'], cape: '#f4f0ff' },
   wizard: { model: 'Mage', show: ['2H_Staff'] },
   sorcerer: { model: 'Mage', show: ['1H_Wand'], cape: '#e05050' },
   warlock: { model: 'Mage', show: ['1H_Wand', 'Spellbook_open'], cape: '#8a50d0' },
-  druid: { model: 'Mage', show: ['2H_Staff'], cape: '#58b060' },
-  bard: { model: 'Rogue', show: ['Knife'], cape: '#e060a0' },
-  rogue: { model: 'Rogue', show: ['Knife', 'Knife_Offhand'] },
   ranger: { model: 'Rogue', show: ['2H_Crossbow'], cape: '#4a8a4a' },
-  monk: { model: 'Barbarian', hide: ['Barbarian_Hat'], melee: 'Unarmed_Melee_Attack_Punch_A' },
   necromancer: { model: 'Mage', show: ['1H_Wand', 'Spellbook_open'], cape: '#2a8a5a' },
   eldknight: { model: 'Knight', show: ['1H_Sword', 'Badge_Shield'], cape: '#4a6ad0' },
   bladesinger: { model: 'Rogue', show: ['Knife', 'Knife_Offhand'], cape: '#a060e0' },
@@ -481,14 +475,6 @@ export const NPC_SPEC: Record<string, ModelSpec> = {
   smith: { model: 'Barbarian', hide: ['Barbarian_Hat'], show: ['1H_Axe'], tint: '#d9a37a' },
   innkeeper: { model: 'Rogue', show: ['Mug'], cape: '#c07a2a' },
   priest: { model: 'Mage', show: ['Spellbook'], cape: '#f2d98a' },
-  archer: { model: 'Rogue', show: ['2H_Crossbow'], cape: '#4a8a4a' },
-  monk: { model: 'Barbarian', hide: ['Barbarian_Hat'], tint: '#e0b588' },
-  rogue: { model: 'Rogue', show: ['Knife', 'Knife_Offhand'], cape: '#3b3b4f' },
-  cleric: { model: 'Mage', show: ['Spellbook'], cape: '#f2d98a' },
-  druid: { model: 'Mage', show: ['2H_Staff'], cape: '#58b060' },
-  bard: { model: 'Rogue', show: ['Mug'], cape: '#e060a0' },
-  necro: { model: 'Mage', show: ['Spellbook_open'], cape: '#2a8a5a' },
-  barbarian: { model: 'Barbarian', hide: ['Barbarian_Hat'], show: ['2H_Axe'], tint: '#d9a37a' },
 };
 
 /** Peças seguradas de acordo com o equipamento (arma e mão esquerda); onde o modelo não tem a peça, mantém o padrão da classe. */
