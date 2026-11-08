@@ -275,10 +275,12 @@ export function applyLook(a: SkinnedActor, look: Look, tone: string) {
 
   // --- olhos: íris colorida colada sobre os olhos do modelo ---
   const shape = { round: [1, 1], big: [1.28, 1.32], narrow: [1.25, 0.62], slit: [0.8, 1.15] }[look.eyes] ?? [1, 1];
-  const irisM = mat(look.eyeColor), pupM = mat('#0a0a0a'), glintM = mat('#ffffff', 0.6);
+  const scleraM = mat('#f4f0e8'), irisM = mat(look.eyeColor), pupM = mat('#0a0a0a'), glintM = mat('#ffffff', 0.6);
   for (const s of [-1, 1]) {
     const f = front(c.x + s * EX, E);
     const w = 0.052 * u * shape[0], h = 0.066 * u * shape[1];
+    add(sph(14), skinM, out(f, 0.0015), f.q, [0.068 * u, 0.084 * u, 0.008 * u]);   // cobre o olho desenhado no modelo
+    add(sph(14), scleraM, out(f, 0.002), f.q, [w * 1.7, h * 1.3, 0.01 * u]);
     const iris = add(sph(14), irisM, out(f, 0.004), f.q, [w, h, 0.012 * u]);
     iris.quaternion.copy(f.q);
     add(sph(10), pupM, out(f, 0.008), f.q, [look.eyes === 'slit' ? w * 0.18 : w * 0.5, h * 0.62, 0.012 * u]);
@@ -351,20 +353,22 @@ function recolorBaked(a: SkinnedActor, head: THREE.SkinnedMesh, c: THREE.Vector3
     if (r >= 200 && g >= 150 && b >= 105 && r - b >= 45) { skinAvg.add(new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiply(base)); ns++; }
   }
   if (ns) skinAvg.multiplyScalar(1 / ns); else skinAvg.copy(skinC);
-  const bald = look.hair === 'none' || look.hair === 'mohawk';
+  const showOld = look.oldHair === 'model';           // cabelo original do modelo (opcional)
   const noBeard = a.spec.model === 'Barbarian' && look.face !== 'beard';
   for (let i = 0; i < pos.count; i++) {
     t.fromBufferAttribute(pos, i); head.applyBoneTransform(i, t); t.applyMatrix4(head.matrixWorld);
     const px = Math.min(tex.w - 1, Math.floor(uv.getX(i) * tex.w)), py = Math.min(tex.h - 1, Math.floor(uv.getY(i) * tex.h));
     const k = (py * tex.w + px) * 4, r = tex.d[k], g = tex.d[k + 1], b = tex.d[k + 2];
-    const skin = r >= 200 && g >= 150 && b >= 105 && r - b >= 45;
-    const dark = r < 70 && g < 70 && b < 70;
-    const inEye = dark && t.y > E - 0.07 * u && t.y < E + 0.065 * u && t.z > c.z && Math.abs(t.x - c.x) < 0.3 * u;
+    const skinTex = r >= 200 && g >= 150 && b >= 105 && r - b >= 45;
+    const skin = skinTex && !(a.spec.model === 'Knight' && t.y > E + 0.1 * u);       // cabelo loiro tem cor de pele: acima da testa conta como cabelo
+    const inEye = !skin && t.y > E - 0.075 * u && t.y < E + 0.05 * u && t.z > c.z && Math.abs(t.x - c.x) < 0.3 * u;
     const metal = b >= g && g >= r && r + g + b > 400;
     const cloth = b > r + 25;
-    if (skin || inEye || metal || cloth) continue;
+    if (skin || (!inEye && (metal || cloth))) continue;
     const beard = t.y < E - 0.06 * u && t.z > c.z;
-    const target = beard ? (noBeard ? skinAvg : hairC) : (bald ? skinAvg : hairC);
+    const brow = !inEye && t.z > c.z && t.y >= E + 0.05 * u && t.y < E + 0.1 * u && Math.abs(t.x - c.x) < 0.3 * u;
+    // olhos desenhados no modelo somem (os olhos vêm do editor); cabelo do modelo só se escolhido
+    const target = inEye ? skinAvg : beard ? (noBeard ? skinAvg : hairC) : brow ? hairC : (showOld ? hairC : skinAvg);
     const orig = new THREE.Color().setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace).multiply(base);
     cols[i * 3] = Math.min(60, target.r / Math.max(0.02, orig.r));
     cols[i * 3 + 1] = Math.min(60, target.g / Math.max(0.02, orig.g));
